@@ -20,6 +20,24 @@ const offerSchema = new mongoose.Schema({
       ref: "Inscrits",
     },
   ],
+  candidatures: [
+    {
+      candidat: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Inscrits",
+        required: true
+      },
+      dateCandidature: {
+        type: Date,
+        default: Date.now
+      },
+      statut: {
+        type: String,
+        enum: ['en_attente', 'accepte', 'refuse'],
+        default: 'en_attente'
+      }
+    }
+  ]
 });
 
 module.exports = mongoose.model("Offre", offerSchema);

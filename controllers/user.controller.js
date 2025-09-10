@@ -5,23 +5,64 @@ const { token } = require("morgan");
 
 exports.register = async (req, res) => {
   try {
-    const { nom, prenom, email, password, preference, role } = req.body;
+    const { nom, prenom, email, password, preference, role, titre, entreprise, localisation, telephone, linkedin, github, portfolio, about, experience, formation, competences, langues } = req.body;
+
     const userExist = await user.findOne({ email });
     if (userExist) {
-      return res.status(404).json({ message: "Ulisateur déjà inscrit" });
+      return res.status(404).json({ message: "Utilisateur déjà inscrit" });
     }
+
     const salt = await bcrypt.genSalt(10);
     const hashed = await bcrypt.hash(password, salt);
+
+    // Gérer l'upload du CV
+    let cvUrl = '';
+    if (req.file) {
+      cvUrl = `/uploads/${req.file.filename}`;
+    }
+
+    // Parser les champs JSON si nécessaire
+    let parsedExperience = [];
+    let parsedFormation = [];
+    let parsedLangues = [];
+
+    try {
+      parsedExperience = experience ? JSON.parse(experience) : [];
+      parsedFormation = formation ? JSON.parse(formation) : [];
+      parsedLangues = langues ? JSON.parse(langues) : [];
+    } catch (parseError) {
+      console.log('Erreur de parsing des données JSON:', parseError);
+    }
+
     const ajout = await user.create({
       nom,
       prenom,
       email,
       password: hashed,
-      preference,
-      role,
+      preference: preference ? (Array.isArray(preference) ? preference : [preference]) : [],
+      role: role || 'candidat',
+      titre: titre || '',
+      entreprise: entreprise || '',
+      localisation: localisation || '',
+      telephone: telephone || '',
+      linkedin: linkedin || '',
+      github: github || '',
+      portfolio: portfolio || '',
+      cvUrl,
+      about: about || '',
+      experience: parsedExperience,
+      formation: parsedFormation,
+      competences: competences ? (Array.isArray(competences) ? competences : [competences]) : [],
+      langues: parsedLangues
     });
-    res.status(200).json(ajout);
+
+    // Retirer le mot de passe avant de renvoyer la réponse
+    const userResponse = ajout.toObject();
+    delete userResponse.password;
+
+    res.status(200).json(userResponse);
   } catch (error) {
+    console.error('Erreur lors de l\'inscription:', error);
     res.status(500).json({ message: "Erreur de serveur" });
   }
 };
@@ -41,27 +82,58 @@ exports.login = async (req, res) => {
       return res.json({ message: "Compte invalide non confirmé !" });
     }
     const token = jwt.sign({ id: isValable._id }, process.env.SECRET_KEY, {
-      expiresIn: "2s",
+      expiresIn: "1h",
     });
     const refreshToken = jwt.sign({ id: isValable._id }, process.env.SECRET_REFRESH_KEY, {
       expiresIn: "7d",
     });
     res.cookie("token", token, {
-      httpOnly: false,
-      secure: false,
+      httpOnly: true,
+      secure: true,
       sameSite: "none",
-      maxAge: 2*60 * 60 * 1000,
+      maxAge: 60 * 60 * 1000, // 1 heure
     });
     res.cookie("refreshToken", refreshToken, {
-      httpOnly: false,
-      secure: false,
+      httpOnly: true,
+      secure: true,
       sameSite: "none",
-      maxAge: 7*24*15 * 60 * 1000,
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
     });
-    res.json("cookie créé avec succès");
+
+    // On retire le mot de passe avant de renvoyer l'utilisateur
+    const userToReturn = isValable.toObject();
+    delete userToReturn.password;
+
+    res.json({ message: "Connexion réussie", user: userToReturn });
   } catch (error) {
     res.status(400).json(error);
   }
+};
+
+exports.refreshToken = (req, res) => {
+  const refreshToken = req.cookies.refreshToken;
+  if (!refreshToken) {
+    return res.status(401).json({ message: "Refresh token manquant" });
+  }
+
+  jwt.verify(refreshToken, process.env.SECRET_REFRESH_KEY, (err, decoded) => {
+    if (err) {
+      return res.status(403).json({ message: "Refresh token invalide" });
+    }
+
+    const newAccessToken = jwt.sign({ id: decoded.id }, process.env.SECRET_KEY, {
+      expiresIn: "1h",
+    });
+
+    res.cookie("token", newAccessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: 60 * 60 * 1000, // 1 heure
+    });
+
+    res.json({ message: "Token rafraîchi avec succès" });
+  });
 };
 
 exports.getUser = async (req, res) => {
@@ -91,12 +163,84 @@ exports.getUser = async (req, res) => {
   }
 };
 
-exports.logout = async (req, res)=>{
+exports.logout = async (req, res) => {
     try {
-       res.clearCookie("token") 
-       res.clearCookie("refreshToken") 
-       res.json({message: "Déconnecté"})
+        // Effacer les cookies en spécifiant les mêmes options que lors de leur création
+        const cookieOptions = {
+            httpOnly: true,
+            secure: true,
+            sameSite: "none",
+        };
+        res.clearCookie("token", cookieOptions);
+        res.clearCookie("refreshToken", cookieOptions);
+        res.status(200).json({ message: "Déconnexion réussie" });
     } catch (error) {
-        res.status(500).json(error.message)
+        res.status(500).json({ message: error.message });
     }
-}
+};
+
+exports.getUserProfile = async (req, res) => {
+  try {
+    const userProfile = await user.findById(req.userId).select("-password");
+    if (!userProfile) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+    res.json(userProfile);
+  } catch (error) {
+    res.status(500).json({ message: "Erreur du serveur" });
+  }
+};
+
+exports.updateUserProfile = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const updateData = req.body;
+    
+    // Supprimer les champs sensibles qui ne doivent pas être modifiés
+    delete updateData.password;
+    delete updateData.email;
+    delete updateData._id;
+    
+    const updatedUser = await user.findByIdAndUpdate(
+      userId, 
+      updateData, 
+      { new: true, runValidators: true }
+    ).select("-password");
+    
+    if (!updatedUser) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+    
+    res.json({ message: "Profil mis à jour avec succès", user: updatedUser });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur lors de la mise à jour du profil" });
+  }
+};
+
+exports.getUserStats = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const Offer = require("../models/offer.model");
+    
+    // Statistiques pour les recruteurs
+    const offresPubliees = await Offer.countDocuments({ source: userId });
+    const candidaturesRecues = await Offer.aggregate([
+      { $match: { source: userId } },
+      { $project: { candidaturesCount: { $size: "$candidatures" } } },
+      { $group: { _id: null, total: { $sum: "$candidaturesCount" } } }
+    ]);
+    
+    // Statistiques pour les candidats
+    const candidaturesEnvoyees = await Offer.countDocuments({
+      "candidatures.candidat": userId
+    });
+    
+    res.json({
+      offresPubliees,
+      candidaturesRecues: candidaturesRecues[0]?.total || 0,
+      candidaturesEnvoyees
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur lors de la récupération des statistiques" });
+  }
+};

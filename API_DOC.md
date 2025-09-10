@@ -2,8 +2,8 @@
 
 ## 🌐 Base URL
 ```
-Production: https://techopportunite.onrender.com
-Local: http://localhost:5000
+Production: https://techopportunite.onrender.com ✅ ACTIF
+Local: http://localhost:5000 (développement)
 ```
 
 ---
@@ -30,7 +30,7 @@ L'API utilise un système d'authentification JWT avec cookies. Les routes proté
 ### 👥 Utilisateurs (`/user`)
 
 #### 🔐 POST `/user/register`
-Crée un nouvel utilisateur.
+  Crée un nouvel utilisateur.  
 
 **Body:**
 ```json
@@ -350,7 +350,7 @@ Authorization: Bearer <token>
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:5000',
+  baseURL: 'https://techopportunite.onrender.com',
   withCredentials: true // Pour les cookies
 });
 
@@ -406,7 +406,7 @@ const createOffer = async (offerData) => {
 ```javascript
 // Fonction utilitaire pour les requêtes
 const apiRequest = async (endpoint, options = {}) => {
-  const url = `http://localhost:5000${endpoint}`;
+  const url = `https://techopportunite.onrender.com${endpoint}`;
   const config = {
     credentials: 'include', // Pour les cookies
     headers: {
@@ -454,7 +454,7 @@ const getStats = () => apiRequest('/stats');
 console.log(document.cookie);
 
 // Vérifier les cookies dans les DevTools
-// Application > Cookies > http://localhost:5000
+// Application > Cookies > https://techopportunite.onrender.com
 ```
 
 ### 📝 Logs côté serveur
