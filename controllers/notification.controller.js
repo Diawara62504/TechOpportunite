@@ -52,6 +52,19 @@ exports.marquerCommeLu = async (req, res) => {
   }
 };
 
+// Compter les notifications non lues
+exports.getUnreadCount = async (req, res) => {
+  try {
+    const count = await notif.countDocuments({ 
+      receveur: req.userId, 
+      lu: false 
+    });
+    res.json({ count });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // Créer une notification pour changement de statut de candidature
 exports.notifierChangementStatut = async (candidatId, offreId, nouveauStatut) => {
   try {

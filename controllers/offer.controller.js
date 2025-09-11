@@ -44,9 +44,12 @@ exports.getAllOffer = async (req, res)=>{
         ]}
         
         const total = await Offer.countDocuments(filter)
-        const pageTotale = Math.floor(total/limit)
-        const getoffer = await Offer.find(filter).skip(skip).limit(limit).populate(
-            "source" , "nom prenom email")
+        const pageTotale = Math.ceil(total/limit)
+        const getoffer = await Offer.find(filter)
+            .sort({ date: -1 }) // Trier par date décroissante (plus récentes en premier)
+            .skip(skip)
+            .limit(limit)
+            .populate("source" , "nom prenom email")
         res.json({
             page: page, limit: limit, pageTotale: pageTotale, total: total, getoffer: getoffer
         }) 

@@ -7,6 +7,7 @@ router.get("/", getAllOffer)
 router.get("/details/:id", getOfferById)
 router.post("/apply/:id", auth, applyToOffer)
 router.get("/my-offers", auth, getMyOffers)
+router.put("/application/:candidatureId", auth, updateApplicationStatus)
 router.get("/:id",auth, filter)
 
 module.exports = router;
