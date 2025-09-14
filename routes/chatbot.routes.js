@@ -14,7 +14,8 @@ router.post('/conversation/:conversationId/transfer', ChatbotController.demander
 router.post('/conversation/:conversationId/close', ChatbotController.fermerConversation);
 
 // Routes administratives (authentification requise)
-router.use('/admin', authMiddleware.verifyToken);
+// Le middleware exporte directement une fonction (pas d'objet { verifyToken })
+router.use('/admin', authMiddleware);
 router.get('/admin/statistics', ChatbotController.obtenirStatistiques);
 router.post('/admin/knowledge', ChatbotController.ajouterConnaissance);
 router.get('/admin/knowledge/search', ChatbotController.rechercherConnaissances);

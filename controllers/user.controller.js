@@ -87,18 +87,16 @@ exports.login = async (req, res) => {
     const refreshToken = jwt.sign({ id: isValable._id }, process.env.SECRET_REFRESH_KEY, {
       expiresIn: "7d",
     });
-    res.cookie("token", token, {
+    // Cookies compatibles dev (http) et prod (https)
+    const isProd = process.env.NODE_ENV === 'production';
+    const cookieOptions = {
       httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      maxAge: 60 * 60 * 1000, // 1 heure
-    });
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
-    });
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
+      maxAge: 60 * 60 * 1000,
+    };
+    res.cookie("token", token, cookieOptions);
+    res.cookie("refreshToken", refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
 
     // On retire le mot de passe avant de renvoyer l'utilisateur
     const userToReturn = isValable.toObject();
@@ -125,10 +123,11 @@ exports.refreshToken = (req, res) => {
       expiresIn: "1h",
     });
 
+    const isProd = process.env.NODE_ENV === 'production';
     res.cookie("token", newAccessToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: "none",
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 60 * 60 * 1000, // 1 heure
     });
 

@@ -8,20 +8,31 @@ exports.createOffer = async (req, res) => {
             return res.status(401).json({ message: "Utilisateur non authentifié" });
         }
 
+        // Vérifier le rôle (seuls les recruteurs peuvent publier)
+        const currentUser = await User.findById(req.userId).select('role');
+        if (!currentUser || currentUser.role !== 'recruteur') {
+            return res.status(403).json({ message: "Seuls les recruteurs peuvent publier des offres" });
+        }
+
         // Assigner la source (recruteur) à l'utilisateur connecté
         const offerData = { ...req.body, source: req.userId, date: new Date() };
         const offer = await Offer.create(offerData);
 
-        // Créer une notification pour le recruteur
+        // Créer une notification de nouvelle offre pour les candidats (optionnel)
         const Notification = require("../models/notification.model");
 
-        const recruteur = await User.findById(req.userId);
-
+        // Notifier le recruteur qu'il a publié (utile côté UI recruteur)
         await Notification.create({
             expediteur: req.userId,
-            receveur: req.userId, // Le recruteur reçoit sa propre notification
-            contenue: `Vous avez publié une nouvelle offre: "${offer.titre}"`
+            receveur: req.userId,
+            contenue: `Vous avez publié une nouvelle offre: "${offer.titre}"`,
+            type: 'nouvelle_offre',
+            offre: offer._id,
+            lu: false
         });
+
+        // NB: la diffusion aux candidats peut être faite côté frontend (liste d'offres)
+        // ou via un système de subscription. On garde la notification recruteur ici.
 
         res.status(201).json(offer);
     } catch (error) {
@@ -214,7 +225,7 @@ exports.updateApplicationStatus = async (req, res) => {
         const { statut } = req.body;
         const userId = req.userId;
 
-        if (!['acceptee', 'refusee', 'en_attente'].includes(statut)) {
+        if (!['accepte', 'refuse', 'en_attente'].includes(statut)) {
             return res.status(400).json({ message: "Statut invalide" });
         }
 
@@ -246,7 +257,7 @@ exports.updateApplicationStatus = async (req, res) => {
             expediteur: userId,
             receveur: candidature.candidat,
             contenue: `Votre candidature pour "${offer.titre}" a été ${statut === 'acceptee' ? 'acceptée' : 'refusée'}.`,
-            type: 'validation',
+            type: 'statut_candidature',
             offre: offer._id,
             candidat: candidature.candidat,
             lu: false

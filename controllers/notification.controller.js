@@ -5,7 +5,7 @@ const User = require("../models/user.model");
 exports.ajoutnotif = async (req, res) => {
   const { receveur, contenue, type, offre, candidat } = req.body;
   try {
-    const ajout = await notif.create({
+    await notif.create({
       expediteur: req.userId,
       receveur,
       contenue,
@@ -14,9 +14,9 @@ exports.ajoutnotif = async (req, res) => {
       candidat,
       lu: false
     });
-    res.json("Envoyé");
+    res.json({ message: "Envoyé" });
   } catch (error) {
-    res.status(500).json(error.message);
+    res.status(500).json({ message: error.message });
   }
 };
 

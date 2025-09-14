@@ -3,7 +3,7 @@
 ## 🌐 Base URL
 ```
 Production: https://techopportunite.onrender.com ✅ ACTIF
-Local: http://localhost:5000 (développement)
+
 ```
 
 ---
