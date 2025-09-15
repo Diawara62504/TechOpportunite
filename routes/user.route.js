@@ -11,5 +11,7 @@ router.get("/logout", user.logout)
 router.get("/profile", tokenValide, user.getUserProfile);
 router.put("/profile", tokenValide, user.updateUserProfile);
 router.get("/stats", tokenValide, user.getUserStats);
+// Profil public candidat pour recruteurs
+router.get("/candidate/:id", tokenValide, user.getCandidatePublicProfile);
 
 module.exports = router;

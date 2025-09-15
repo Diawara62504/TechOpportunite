@@ -243,3 +243,53 @@ exports.getUserStats = async (req, res) => {
     res.status(500).json({ message: "Erreur lors de la récupération des statistiques" });
   }
 };
+
+// Récupérer le profil public d'un candidat (accès recruteur/admin)
+exports.getCandidatePublicProfile = async (req, res) => {
+  try {
+    const User = require("../models/user.model");
+    const UserCertification = require("../models/userCertification.model");
+    const TestResult = require("../models/testResult.model");
+
+    const requester = await User.findById(req.userId).select('role');
+    if (!requester || (requester.role !== 'recruteur' && requester.role !== 'admin')) {
+      return res.status(403).json({ message: 'Accès réservé aux recruteurs' });
+    }
+
+    const { id } = req.params;
+    const candidate = await User.findById(id).select('-password');
+    if (!candidate) return res.status(404).json({ message: 'Candidat non trouvé' });
+
+    const certifications = await UserCertification.find({ utilisateur: id })
+      .populate('certification', 'nom niveau')
+      .lean();
+
+    const tests = await TestResult.find({ candidat: id, statut: 'termine' })
+      .populate('test', 'titre technologie niveau')
+      .sort({ dateFin: -1 })
+      .limit(10)
+      .lean();
+
+    res.json({
+      candidate,
+      certifications: (certifications || []).map(c => ({
+        nom: c.certification?.nom,
+        niveau: c.certification?.niveau,
+        scoreObtenu: c.scoreObtenu,
+        certificatUrl: c.certificatUrl,
+        dateObtention: c.dateObtention
+      })),
+      tests: (tests || []).map(t => ({
+        testTitre: t.testTitre || (t.test && t.test.titre) || undefined,
+        technologie: t.technologie || (t.test && t.test.technologie) || undefined,
+        niveau: t.niveau || (t.test && t.test.niveau) || undefined,
+        scoreTotal: t.scoreTotal,
+        pourcentageReussite: t.pourcentageReussite,
+        dateFin: t.dateFin
+      }))
+    });
+  } catch (error) {
+    console.error('Erreur getCandidatePublicProfile:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
