@@ -1,5 +1,8 @@
 const Offer = require("../models/offer.model")
 const User = require("../models/user.model")
+const { getSocket } = require("../utils/socket");
+const UserCertification = require("../models/userCertification.model");
+const TestResult = require("../models/testResult.model");
 
 exports.createOffer = async (req, res) => {
     try {
@@ -138,6 +141,11 @@ exports.applyToOffer = async (req, res) => {
             return res.status(404).json({ message: "Offre non trouvée" });
         }
 
+        // Interdire au recruteur de postuler à sa propre offre
+        if (offer.source && offer.source.toString() === candidatId) {
+            return res.status(400).json({ message: "Vous ne pouvez pas postuler à votre propre offre" });
+        }
+
         // Vérifier si l'utilisateur a déjà postulé
         const existingApplication = offer.candidatures.find(
             candidature => candidature.candidat.toString() === candidatId
@@ -153,6 +161,34 @@ exports.applyToOffer = async (req, res) => {
         if (!candidat) {
             return res.status(404).json({ message: "Candidat non trouvé" });
         }
+
+        // Upload inline: si CV/portfolio envoyés, les persister côté user si manquants
+        // req.files?.cv/portfolio définis par upload.fields
+        if (req.files) {
+            if (!candidat.cvUrl && req.files.cv?.[0]) {
+                candidat.cvUrl = `/uploads/${req.files.cv[0].filename}`;
+            }
+            if ((!candidat.portfolio || candidat.portfolio === '') && req.files.portfolio?.[0]) {
+                // Pour portfolio, accepter PDF/Doc également (même stockage), ou un lien URL fourni dans body
+                candidat.portfolio = `/uploads/${req.files.portfolio[0].filename}`;
+            }
+            await candidat.save();
+        }
+        // Si un lien de portfolio est fourni dans le body (string), le sauvegarder si manquant
+        if ((!candidat.portfolio || candidat.portfolio === '') && req.body.portfolioLink) {
+            candidat.portfolio = req.body.portfolioLink;
+            await candidat.save();
+        }
+
+        // Récupérer certifications et derniers résultats de tests pour enrichir le snapshot
+        const certifications = await UserCertification.find({ utilisateur: candidatId })
+          .populate('certification', 'nom niveau')
+          .lean();
+        const tests = await TestResult.find({ candidat: candidatId, statut: 'termine' })
+          .populate('test', 'titre technologie niveau')
+          .sort({ dateFin: -1 })
+          .limit(5)
+          .lean();
 
         // Créer l'objet candidature avec les données du profil
         const candidatureData = {
@@ -175,7 +211,22 @@ exports.applyToOffer = async (req, res) => {
                 competences: candidat.competences,
                 experience: candidat.experience,
                 formation: candidat.formation,
-                langues: candidat.langues
+                langues: candidat.langues,
+                certifications: (certifications || []).map(c => ({
+                  nom: c.certification?.nom,
+                  niveau: c.certification?.niveau,
+                  scoreObtenu: c.scoreObtenu,
+                  certificatUrl: c.certificatUrl,
+                  dateObtention: c.dateObtention
+                })),
+                tests: (tests || []).map(t => ({
+                  testTitre: t.testTitre || (t.test && t.test.titre) || undefined,
+                  technologie: t.technologie || undefined,
+                  niveau: t.niveau || undefined,
+                  scoreTotal: t.scoreTotal,
+                  pourcentageReussite: t.pourcentageReussite,
+                  dateFin: t.dateFin
+                }))
             }
         };
 
@@ -185,11 +236,6 @@ exports.applyToOffer = async (req, res) => {
 
         // Créer une notification pour le recruteur
         const Notification = require("../models/notification.model");
-
-        console.log('Création de notification:');
-        console.log('Candidat ID:', candidatId);
-        console.log('Recruteur ID (offer.source):', offer.source);
-        console.log('Offre ID:', offer._id);
 
         const notificationMessage = `${candidat.nom} ${candidat.prenom} a postulé pour votre offre "${offer.titre}"`;
         const notificationDetails = candidat.cvUrl ?
@@ -206,7 +252,19 @@ exports.applyToOffer = async (req, res) => {
             lu: false
         });
 
-        console.log('Notification créée:', notification._id);
+        // Emit temps réel au recruteur
+        const io = getSocket();
+        if (io && offer.source) {
+          io.to(`user:${offer.source.toString()}`).emit('notification:new', {
+            _id: notification._id,
+            contenue: notification.contenue,
+            type: notification.type,
+            offre: notification.offre,
+            candidat: notification.candidat,
+            lu: notification.lu,
+            createdAt: notification.createdAt
+          });
+        }
 
         res.status(201).json({
             message: "Candidature envoyée avec succès",
@@ -247,24 +305,40 @@ exports.updateApplicationStatus = async (req, res) => {
             return res.status(404).json({ message: "Candidature non trouvée" });
         }
 
-        candidature.statut = statut;
+        // Normaliser les statuts côté backend (acceptee/refusee -> accepte/refuse)
+        const normalized = statut === 'acceptee' ? 'accepte' : (statut === 'refusee' ? 'refuse' : 'en_attente');
+        candidature.statut = normalized;
         await offer.save();
 
         // Créer une notification pour le candidat
         const Notification = require("../models/notification.model");
 
-        await Notification.create({
+        const notif = await Notification.create({
             expediteur: userId,
             receveur: candidature.candidat,
-            contenue: `Votre candidature pour "${offer.titre}" a été ${statut === 'acceptee' ? 'acceptée' : 'refusée'}.`,
+            contenue: `Votre candidature pour "${offer.titre}" a été ${normalized === 'accepte' ? 'acceptée' : normalized === 'refuse' ? 'refusée' : 'mise à jour'}.`,
             type: 'statut_candidature',
             offre: offer._id,
             candidat: candidature.candidat,
             lu: false
         });
 
+        // Emit temps réel au candidat
+        const io = getSocket();
+        if (io && candidature.candidat) {
+          io.to(`user:${candidature.candidat.toString()}`).emit('notification:new', {
+            _id: notif._id,
+            contenue: notif.contenue,
+            type: notif.type,
+            offre: notif.offre,
+            candidat: notif.candidat,
+            lu: notif.lu,
+            createdAt: notif.createdAt
+          });
+        }
+
         res.status(200).json({
-            message: `Candidature ${statut === 'acceptee' ? 'acceptée' : 'refusée'} avec succès`,
+            message: `Candidature ${normalized === 'accepte' ? 'acceptée' : normalized === 'refuse' ? 'refusée' : 'mise à jour'} avec succès`,
             candidature: candidature
         });
 

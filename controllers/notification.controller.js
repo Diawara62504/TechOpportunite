@@ -27,7 +27,10 @@ exports.affichenotif = async (req, res) => {
       .select("-receveur")
       .populate("expediteur", "prenom nom email")
       .populate("offre", "titre type localisation")
-      .populate("candidat", "prenom nom email")
+      .populate(
+        "candidat",
+        "prenom nom email titre localisation telephone linkedin github portfolio cvUrl competences preference"
+      )
       .sort({ createdAt: -1 }); // Trier par date décroissante
     res.json(affiche);
   } catch (error) {

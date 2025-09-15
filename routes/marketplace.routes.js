@@ -4,7 +4,8 @@ const MarketplaceController = require('../controllers/marketplace.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
 
 // Middleware d'authentification pour toutes les routes
-router.use(authMiddleware.verifyToken);
+// Le middleware exporte directement la fonction, on l'utilise donc telle quelle
+router.use(authMiddleware);
 
 // Routes pour les profils talents
 router.get('/talent/profile', MarketplaceController.getMyTalentProfile);
