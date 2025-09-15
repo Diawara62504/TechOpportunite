@@ -1,24 +1,57 @@
 const notif = require("../models/notification.model");
 const offer = require("../models/offer.model");
 const User = require("../models/user.model");
+const { getSocket } = require("../utils/socket");
 
 exports.ajoutnotif = async (req, res) => {
-  const { receveur, contenue, type, offre, candidat } = req.body;
+  const { receveur, contenue, type, offre } = req.body;
   try {
-    await notif.create({
+    let notificationData = {
       expediteur: req.userId,
-      receveur,
       contenue,
       type: type || 'general',
       offre,
-      candidat,
       lu: false
-    });
+    };
+
+    if (type === 'candidature') {
+      const offreDoc = await offer.findById(offre);
+      if (!offreDoc) {
+        return res.status(404).json({ message: "Offre non trouvée" });
+      }
+      notificationData.receveur = offreDoc.recruteur; // ✅ le recruteur reçoit
+      notificationData.candidat = req.userId; // ✅ le vrai candidat
+    } else {
+      // Cas général : receveur passé dans le body
+      notificationData.receveur = receveur;
+    }
+
+    const created = await notif.create(notificationData);
+
+    // Émission temps réel vers le receveur
+    try {
+      const io = getSocket();
+      if (io && created.receveur) {
+        io.to(`user:${created.receveur.toString()}`).emit('notification:new', {
+          _id: created._id,
+          contenue: created.contenue,
+          type: created.type,
+          offre: created.offre,
+          candidat: created.candidat,
+          lu: created.lu,
+          createdAt: created.createdAt
+        });
+      }
+    } catch (e) {
+      // no-op
+    }
+
     res.json({ message: "Envoyé" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 exports.affichenotif = async (req, res) => {
   try {

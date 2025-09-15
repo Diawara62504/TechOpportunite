@@ -8,6 +8,11 @@ const routeStats = require("./routes/stats.route");
 const routerNotif = require("./routes/notif.routes");
 const routerMessage = require("./routes/message.routes");
 const routerChatbot = require("./routes/chatbot.routes");
+const routerAnalytics = require("./routes/analytics.routes");
+const routerAiMatching = require("./routes/aiMatching.routes");
+const routerGamification = require("./routes/gamification.routes");
+const routerMarketplace = require("./routes/marketplace.routes");
+const routerVideoInterview = require("./routes/videoInterview.routes");
 const cookieParser = require("cookie-parser")
 const cors = require("cors");
 const { error } = require("./middlewares/error.middleware");
@@ -55,6 +60,11 @@ app.use("/api/stats", routeStats);
 app.use("/api/notification", routerNotif)
 app.use("/api/message", routerMessage);
 app.use("/api/chatbot", routerChatbot);
+app.use("/api/analytics", routerAnalytics);
+app.use("/api/ai-matching", routerAiMatching);
+app.use("/api/gamification", routerGamification);
+app.use("/api/marketplace", routerMarketplace);
+app.use("/api/video-interviews", routerVideoInterview);
 app.use(error)
 
 // Socket.IO setup

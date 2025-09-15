@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { analyticsController, AnalyticsService } = require('../controllers/analytics.controller');
+const { AnalyticsEvent } = require('../models/analytics.model');
 const authMiddleware = require('../middlewares/auth.middleware');
 
 // Middleware pour tracker automatiquement les événements de page

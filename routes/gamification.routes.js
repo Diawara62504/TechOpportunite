@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const gamificationController = require('../controllers/gamification.controller');
+const { gamificationController, GamificationService } = require('../controllers/gamification.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
 
 // Middleware d'authentification pour toutes les routes
@@ -10,25 +10,35 @@ router.use(authMiddleware.verifyToken);
 router.get('/profile', gamificationController.getUserProfile);
 router.put('/profile/preferences', gamificationController.updatePreferences);
 
-// Routes pour les badges
-router.get('/badges', gamificationController.getAllBadges);
-router.get('/badges/user', gamificationController.getUserBadges);
+// Routes pour les badges (liste des badges disponibles)
+router.get('/badges', gamificationController.getBadges);
 
 // Routes pour les défis
 router.get('/challenges', gamificationController.getChallenges);
 router.post('/challenges/:challengeId/join', gamificationController.joinChallenge);
-router.get('/challenges/user', gamificationController.getUserChallenges);
 
 // Routes pour le leaderboard
 router.get('/leaderboard', gamificationController.getLeaderboard);
-router.get('/leaderboard/regional/:region', gamificationController.getRegionalLeaderboard);
 
-// Routes pour les récompenses
-router.get('/rewards', gamificationController.getAvailableRewards);
-router.post('/rewards/:rewardId/claim', gamificationController.claimReward);
+// Routes internes (pour d'autres services)
+router.post('/award-points', async (req, res) => {
+  try {
+    const { userId, points, action, details } = req.body;
+    const result = await GamificationService.awardPoints(userId || req.user._id, points, action, details);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
-// Routes internes (pour les autres services)
-router.post('/award-points', gamificationController.awardPoints);
-router.post('/update-stats', gamificationController.updateUserStats);
+router.post('/update-stats', async (req, res) => {
+  try {
+    const { userId, statType, value } = req.body;
+    await GamificationService.updateUserStats(userId || req.user._id, statType, value);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 module.exports = router;

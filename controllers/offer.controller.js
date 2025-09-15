@@ -3,6 +3,8 @@ const User = require("../models/user.model")
 const { getSocket } = require("../utils/socket");
 const UserCertification = require("../models/userCertification.model");
 const TestResult = require("../models/testResult.model");
+const { GamificationService } = require("./gamification.controller");
+const { AnalyticsService } = require("./analytics.controller");
 
 exports.createOffer = async (req, res) => {
     try {
@@ -265,6 +267,20 @@ exports.applyToOffer = async (req, res) => {
             createdAt: notification.createdAt
           });
         }
+
+        // Gamification: incrémenter statistiques + points
+        try {
+          await GamificationService.updateUserStats(candidatId, 'application_sent', 1);
+        } catch (e) { /* no-op */ }
+
+        // Analytics: tracker l'événement job_apply
+        try {
+          await AnalyticsService.trackEvent(
+            { user: { _id: candidatId }, headers: req.headers, ip: req.ip, connection: req.connection },
+            'job_apply',
+            { offreId: offer._id, titre: offer.titre }
+          );
+        } catch (e) { /* no-op */ }
 
         res.status(201).json({
             message: "Candidature envoyée avec succès",

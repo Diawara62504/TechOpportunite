@@ -1,4 +1,5 @@
 const Message = require("../models/message.model");
+const { getSocket } = require("../utils/socket");
 
 exports.envoyerMessage = async (req, res) => {
   try {
@@ -14,6 +15,27 @@ exports.envoyerMessage = async (req, res) => {
       lu: false,
       type: 'message'
     });
+
+    // Temps réel: émettre au destinataire et à l'expéditeur pour MAJ instantanée
+    try {
+      const io = getSocket();
+      if (io) {
+        const payload = {
+          _id: message._id,
+          expediteur: message.expediteur,
+          destinataire: message.destinataire,
+          contenu: message.contenu,
+          offre: message.offre,
+          lu: message.lu,
+          createdAt: message.createdAt
+        };
+        io.to(`user:${destinataire.toString()}`).emit('message:new', payload);
+        io.to(`user:${req.userId.toString()}`).emit('message:new', payload);
+      }
+    } catch (e) {
+      // no-op
+    }
+
     res.status(201).json(message);
   } catch (error) {
     res.status(500).json({ message: error.message });
