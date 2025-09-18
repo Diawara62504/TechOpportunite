@@ -24,24 +24,9 @@ const server = http.createServer(app);
 app.use(express.json());
 app.use(cookieParser())
 
-// CORS configuration for both local development and production
+// CORS: ouvrir mondialement (tout pays, tout domaine) pour rendre la plateforme accessible
 const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-
-    const allowedOrigins = [
-      "http://localhost:5173", // Local development
-      "https://techopportunite.onrender.com", // Production frontend
-      "http://localhost:3000" // Alternative local port
-    ];
-
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: true, // Reflect request origin (access mondial)
   credentials: true
 };
 app.use(cors(corsOptions));
@@ -65,6 +50,13 @@ app.use("/api/ai-matching", routerAiMatching);
 app.use("/api/gamification", routerGamification);
 app.use("/api/marketplace", routerMarketplace);
 app.use("/api/video-interviews", routerVideoInterview);
+app.use('/api/admin', require('./routes/admin.route'));
+
+
+// Validation routes
+const validationRoutes = require("./routes/validation.routes");
+app.use("/api", validationRoutes);
+
 app.use(error)
 
 // Socket.IO setup

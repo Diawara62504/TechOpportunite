@@ -53,7 +53,8 @@ exports.register = async (req, res) => {
       experience: parsedExperience,
       formation: parsedFormation,
       competences: competences ? (Array.isArray(competences) ? competences : [competences]) : [],
-      langues: parsedLangues
+      langues: parsedLangues,
+      validationStatus: role === 'admin' ? 'approved' : 'pending'
     });
 
     // Retirer le mot de passe avant de renvoyer la réponse
@@ -78,8 +79,16 @@ exports.login = async (req, res) => {
     if (!isMatch) {
       return res.status(404).json({ message: "Information incorrectes !" });
     }
-    if (isValable.confirmationToken == "") {
-      return res.json({ message: "Compte invalide non confirmé !" });
+
+    // Vérifier le statut de validation
+    if (isValable.validationStatus === 'pending') {
+      return res.status(403).json({ message: "Votre compte est en attente de validation par un administrateur." });
+    }
+    if (isValable.validationStatus === 'rejected') {
+      return res.status(403).json({ message: "Votre compte a été rejeté. Contactez l'administration." });
+    }
+    if (isValable.validationStatus === 'suspended') {
+      return res.status(403).json({ message: "Votre compte est suspendu. Contactez l'administration." });
     }
     const token = jwt.sign({ id: isValable._id }, process.env.SECRET_KEY, {
       expiresIn: "1h",
@@ -199,6 +208,16 @@ exports.updateUserProfile = async (req, res) => {
     delete updateData.password;
     delete updateData.email;
     delete updateData._id;
+    
+
+    if (req.files) {
+      if (req.files.cv) {
+        updateData.cvUrl = `/uploads/${req.files.cv[0].filename}`;
+      }
+      if (req.files.logo) {
+        updateData.logoUrl = `/uploads/${req.files.logo[0].filename}`;
+      }
+    }
     
     const updatedUser = await user.findByIdAndUpdate(
       userId, 

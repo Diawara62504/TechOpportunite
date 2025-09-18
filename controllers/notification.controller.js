@@ -67,15 +67,16 @@ exports.affichenotif = async (req, res) => {
       .sort({ createdAt: -1 }); // Trier par date décroissante
     res.json(affiche);
   } catch (error) {
-    res.status(500).json(error.message);
+    res.status(500).json({ message: "Erreur lors de la récupération des notifications" });
   }
 };
 
 // Marquer une notification comme lue
-exports.marquerCommeLu = async (req, res) => {
+exports.markAsRead = async (req, res) => {
   try {
-    const notification = await notif.findByIdAndUpdate(
-      req.params.id,
+    const { id } = req.params;
+    const notification = await notif.findOneAndUpdate(
+      { _id: id, receveur: req.userId },
       { lu: true },
       { new: true }
     );
@@ -84,16 +85,33 @@ exports.marquerCommeLu = async (req, res) => {
     }
     res.json(notification);
   } catch (error) {
-    res.status(500).json(error.message);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Supprimer une notification
+exports.deleteNotification = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const notification = await notif.findOneAndDelete({
+      _id: id,
+      receveur: req.userId
+    });
+    if (!notification) {
+      return res.status(404).json({ message: "Notification non trouvée" });
+    }
+    res.json({ message: "Notification supprimée" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 
 // Compter les notifications non lues
-exports.getUnreadCount = async (req, res) => {
+exports.countUnread = async (req, res) => {
   try {
-    const count = await notif.countDocuments({ 
-      receveur: req.userId, 
-      lu: false 
+    const count = await notif.countDocuments({
+      receveur: req.userId,
+      lu: false
     });
     res.json({ count });
   } catch (error) {

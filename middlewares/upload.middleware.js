@@ -15,22 +15,35 @@ const storage = multer.diskStorage({
 
 // Filtre pour accepter seulement certains types de fichiers
 const fileFilter = (req, file, cb) => {
-  // Accepter seulement les fichiers PDF et DOC/DOCX pour les CV
-  if (file.mimetype === 'application/pdf' ||
+  // Accepter: CV (pdf/doc), portfolio (pdf/doc), photo (image/*), logo (image/*)
+  if (file.fieldname === 'cv' || file.fieldname === 'portfolio') {
+    if (
+      file.mimetype === 'application/pdf' ||
       file.mimetype === 'application/msword' ||
-      file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-    cb(null, true);
+      file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ) {
+      cb(null, true);
+    } else {
+      cb(new Error('Seuls les fichiers PDF et Word sont acceptés pour CV/Portfolio'), false);
+    }
+  } else if (file.fieldname === 'photo' || file.fieldname === 'logo') {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Seules les images sont acceptées pour la photo/logo'), false);
+    }
   } else {
-    cb(new Error('Seuls les fichiers PDF et Word sont acceptés pour le CV'), false);
+    cb(new Error('Type de fichier non supporté'), false);
   }
 };
 
-// Configuration de multer
+// Configuration de multer (limites et types)
 const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024 // Limite de 5MB
+    // 2 Mo pour les images, 5 Mo pour docs — multer ne fait pas par champ, on prend 5 Mo global
+    fileSize: 5 * 1024 * 1024
   }
 });
 

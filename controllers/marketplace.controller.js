@@ -1,5 +1,5 @@
 const { TalentProfile, TalentRequest, AIMatch } = require('../models/marketplace.model');
-const Inscrits = require('../models/inscrits.model');
+const User = require('../models/user.model');
 
 // Service de matching IA
 class MarketplaceMatchingService {

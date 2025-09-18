@@ -13,14 +13,15 @@ const userSchema = new mongoose.Schema({
     default: 'candidat'
   },
   // Nouveaux champs professionnels
-  titre: { type: String, default: '' }, // Ex: "Développeur Full-Stack Senior"
+titre: { type: String, default: '' }, // Ex: "Développeur Full-Stack Senior"
   entreprise: { type: String, default: '' },
   localisation: { type: String, default: '' },
   telephone: { type: String, default: '' },
   linkedin: { type: String, default: '' },
   github: { type: String, default: '' },
   portfolio: { type: String, default: '' },
-  cvUrl: { type: String, default: '' }, // Added field for CV URL or path
+  logoUrl: { type: String, default: '' }, // Pour les recruteurs
+  photoUrl: { type: String, default: '' }, // Photo du candidat (optionnelle)
   experience: [{
     poste: String,
     entreprise: String,
@@ -43,7 +44,12 @@ const userSchema = new mongoose.Schema({
   }],
   dateCreation: { type: Date, default: Date.now },
   derniereConnexion: { type: Date, default: Date.now },
-  cvUrl: { type: String, default: '' }
+  cvUrl: { type: String, default: '' },
+  validationStatus: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected', 'suspended'],
+    default: 'pending'
+  }
 });
 
 module.exports = mongoose.model("Inscrits", userSchema);

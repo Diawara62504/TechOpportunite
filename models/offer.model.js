@@ -14,6 +14,17 @@ const offerSchema = new mongoose.Schema({
   source: { type: mongoose.Schema.Types.ObjectId,
     ref: "Inscrits" },
   technologies: { type: String, required: true },
+  // Nouveaux champs pour couverture globale des domaines et international
+  domain: { type: String, enum: [
+    'Cloud','Cybersécurité','IA','Data','Développement logiciel','DevOps/SRE','Produit & Design','IoT/Embedded','Blockchain/Web3','AR/VR','Emergents'
+  ], required: false },
+  categories: [{ type: String }], // sous-domaines/catégories spécifiques par domaine
+  country: { type: String }, // ISO (ex: FR, US, GN)
+  city: { type: String },
+  remoteType: { type: String, enum: ['remote','hybride','sur_site'], default: 'sur_site' },
+  relocation: { type: Boolean, default: false },
+  visaSponsorship: { type: Boolean, default: false },
+
   persAyantPost: [
     {
       type: mongoose.Schema.Types.ObjectId,
@@ -48,6 +59,7 @@ const offerSchema = new mongoose.Schema({
         github: String,
         portfolio: String,
         cvUrl: String,
+        photoUrl: String,
         about: String,
         competences: [String],
         experience: [{

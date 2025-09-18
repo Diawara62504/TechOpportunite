@@ -9,7 +9,7 @@ router.post("/refresh-token", user.refreshToken);
 router.get("/get", user.getUser)
 router.get("/logout", user.logout)
 router.get("/profile", tokenValide, user.getUserProfile);
-router.put("/profile", tokenValide, user.updateUserProfile);
+                                                                               router.put("/profile", tokenValide, upload.fields([{ name: 'cv', maxCount: 1 }, { name: 'logo', maxCount: 1 }]), user.updateUserProfile);
 router.get("/stats", tokenValide, user.getUserStats);
 // Profil public candidat pour recruteurs
 router.get("/candidate/:id", tokenValide, user.getCandidatePublicProfile);

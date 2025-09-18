@@ -6,8 +6,12 @@ const upload = require("../middlewares/upload.middleware");
 router.post("/", auth, createOffer)
 router.get("/", getAllOffer)
 router.get("/details/:id", getOfferById)
-// Permettre l'upload de CV/portfolio au moment de la candidature
-router.post("/apply/:id", auth, upload.fields([{ name: 'cv', maxCount: 1 }, { name: 'portfolio', maxCount: 1 }]), applyToOffer)
+// Permettre l'upload de CV/portfolio/photo (optionnels) au moment de la candidature
+router.post("/apply/:id", auth, upload.fields([
+  { name: 'cv', maxCount: 1 },
+  { name: 'portfolio', maxCount: 1 },
+  { name: 'photo', maxCount: 1 }
+]), applyToOffer)
 router.get("/my-offers", auth, getMyOffers)
 router.put("/application/:candidatureId", auth, updateApplicationStatus)
 router.get("/:id",auth, filter)

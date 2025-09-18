@@ -5,6 +5,9 @@ const UserCertification = require("../models/userCertification.model");
 const TestResult = require("../models/testResult.model");
 const { GamificationService } = require("./gamification.controller");
 const { AnalyticsService } = require("./analytics.controller");
+const ValidationService = require("../services/validationService");
+const FraudDetectionService = require("../services/fraudDetectionService");
+const Notification = require("../models/notification.model");
 
 exports.createOffer = async (req, res) => {
     try {
@@ -12,33 +15,58 @@ exports.createOffer = async (req, res) => {
         if (!req.userId) {
             return res.status(401).json({ message: "Utilisateur non authentifié" });
         }
-
-        // Vérifier le rôle (seuls les recruteurs peuvent publier)
-        const currentUser = await User.findById(req.userId).select('role');
+        // Vérifier le rôle et l'email professionnel
+        const currentUser = await User.findById(req.userId).select('role email');
         if (!currentUser || currentUser.role !== 'recruteur') {
             return res.status(403).json({ message: "Seuls les recruteurs peuvent publier des offres" });
         }
-
-        // Assigner la source (recruteur) à l'utilisateur connecté
-        const offerData = { ...req.body, source: req.userId, date: new Date() };
+        // Valider l'email professionnel
+        const emailValidation = await ValidationService.validateProfessionalEmail(currentUser.email);
+        if (!emailValidation.isValid) {
+            return res.status(403).json({ message: emailValidation.reason });
+        }
+        // Analyse anti-fraude du contenu
+        const fraudAnalysis = await FraudDetectionService.analyzeContent(
+            `${req.body.titre} ${req.body.description}`
+        );
+        if (fraudAnalysis.isScam) {
+            return res.status(403).json({ 
+                message: "Contenu suspect détecté",
+                details: fraudAnalysis
+            });
+        }
+        // Enrichir domaine/catégories automatiquement
+        const { inferDomainAndCategories } = require("../utils/domainClassifier");
+        let computed = {};
+        if (!req.body.domain) {
+            computed = inferDomainAndCategories({
+                titre: req.body.titre,
+                description: req.body.description,
+                technologies: req.body.technologies
+            });
+        }
+        // Créer l'offre avec statut en attente de validation
+        const offerData = { 
+            ...req.body,
+            ...computed, 
+            source: req.userId,
+            date: new Date(),
+            statut: 'en_attente_validation',
+            analyseFraude: fraudAnalysis
+        };
         const offer = await Offer.create(offerData);
-
-        // Créer une notification de nouvelle offre pour les candidats (optionnel)
-        const Notification = require("../models/notification.model");
-
-        // Notifier le recruteur qu'il a publié (utile côté UI recruteur)
-        await Notification.create({
-            expediteur: req.userId,
-            receveur: req.userId,
-            contenue: `Vous avez publié une nouvelle offre: "${offer.titre}"`,
-            type: 'nouvelle_offre',
-            offre: offer._id,
-            lu: false
-        });
-
-        // NB: la diffusion aux candidats peut être faite côté frontend (liste d'offres)
-        // ou via un système de subscription. On garde la notification recruteur ici.
-
+        // Notification pour validation manuelle si score de risque > 20
+        if (fraudAnalysis.riskScore > 20) {
+            await Notification.create({
+                type: 'validation_requise',
+                offre: offer._id,
+                contenu: `Nouvelle offre nécessitant une validation: "${offer.titre}"`,
+                metadata: {
+                    riskScore: fraudAnalysis.riskScore,
+                    suspiciousTerms: fraudAnalysis.suspiciousTerms
+                }
+            });
+        }
         res.status(201).json(offer);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -56,12 +84,42 @@ exports.getAllOffer = async (req, res)=>{
         const filter = {$or:[
             {type: {$regex: search, $options: "i"}},
             {technologies: {$regex: search, $options: "i"}},
-            {localisation: {$regex: search, $options: "i"}}
+            {localisation: {$regex: search, $options: "i"}},
+            {domain: {$regex: search, $options: "i"}},
+            {categories: {$regex: search, $options: "i"}},
+            {country: {$regex: search, $options: "i"}},
+            {city: {$regex: search, $options: "i"}}
         ]}
+        // Filtres avancés
+        const { domain, categories, country, city, remoteType, relocation, visaSponsorship, type: typeParam, technologies: techParam, localisation: locParam } = req.query;
+
+        // Bloc de recherche texte libre (OR sur plusieurs champs)
+        const searchBlock = { $or: [
+          { type: { $regex: search, $options: 'i' } },
+          { technologies: { $regex: search, $options: 'i' } },
+          { localisation: { $regex: search, $options: 'i' } },
+          { domain: { $regex: search, $options: 'i' } },
+          { categories: { $regex: search, $options: 'i' } },
+          { country: { $regex: search, $options: 'i' } },
+          { city: { $regex: search, $options: 'i' } }
+        ]};
+
+        // Critères AND
+        const criteria = { $and: [ searchBlock ] };
+        if (domain) criteria.$and.push({ domain: { $regex: domain, $options: 'i' } });
+        if (categories) criteria.$and.push({ categories: { $regex: categories, $options: 'i' } });
+        if (country) criteria.$and.push({ country: { $regex: country, $options: 'i' } });
+        if (city) criteria.$and.push({ city: { $regex: city, $options: 'i' } });
+        if (remoteType) criteria.$and.push({ remoteType });
+        if (typeof relocation !== 'undefined') criteria.$and.push({ relocation: String(relocation).toLowerCase() === 'true' });
+        if (typeof visaSponsorship !== 'undefined') criteria.$and.push({ visaSponsorship: String(visaSponsorship).toLowerCase() === 'true' });
+        if (typeParam) criteria.$and.push({ type: { $regex: typeParam, $options: 'i' } });
+        if (techParam) criteria.$and.push({ technologies: { $regex: techParam, $options: 'i' } });
+        if (locParam) criteria.$and.push({ localisation: { $regex: locParam, $options: 'i' } });
         
-        const total = await Offer.countDocuments(filter)
+        const total = await Offer.countDocuments(criteria)
         const pageTotale = Math.ceil(total/limit)
-        const getoffer = await Offer.find(filter)
+        const getoffer = await Offer.find(criteria)
             .sort({ date: -1 }) // Trier par date décroissante (plus récentes en premier)
             .skip(skip)
             .limit(limit)
@@ -174,6 +232,10 @@ exports.applyToOffer = async (req, res) => {
                 // Pour portfolio, accepter PDF/Doc également (même stockage), ou un lien URL fourni dans body
                 candidat.portfolio = `/uploads/${req.files.portfolio[0].filename}`;
             }
+            if (req.files.photo?.[0]) {
+                // Photo du candidat (optionnelle)
+                candidat.photoUrl = `/uploads/${req.files.photo[0].filename}`;
+            }
             await candidat.save();
         }
         // Si un lien de portfolio est fourni dans le body (string), le sauvegarder si manquant
@@ -209,6 +271,7 @@ exports.applyToOffer = async (req, res) => {
                 github: candidat.github,
                 portfolio: candidat.portfolio,
                 cvUrl: candidat.cvUrl,
+                photoUrl: candidat.photoUrl,
                 about: candidat.about,
                 competences: candidat.competences,
                 experience: candidat.experience,
@@ -294,54 +357,69 @@ exports.applyToOffer = async (req, res) => {
 }
 
 exports.updateApplicationStatus = async (req, res) => {
-    try {
-        const { candidatureId } = req.params;
-        const { statut } = req.body;
-        const userId = req.userId;
+  try {
+    const { candidatureId } = req.params;
+    const { statut } = req.body;
+    const userId = req.userId;
 
-        if (!['accepte', 'refuse', 'en_attente'].includes(statut)) {
-            return res.status(400).json({ message: "Statut invalide" });
-        }
+    // Valider le statut
+    if (!['accepte', 'refuse', 'en_attente'].includes(statut)) {
+      return res.status(400).json({ message: "Statut invalide" });
+    }
 
-        // Trouver l'offre qui contient cette candidature
-        const offer = await Offer.findOne({ "candidatures._id": candidatureId });
+    // Trouver l'offre qui contient cette candidature
+    const offer = await Offer.findOne({ "candidatures._id": candidatureId });
+    if (!offer) {
+      return res.status(404).json({ message: "Candidature non trouvée" });
+    }
 
-        if (!offer) {
-            return res.status(404).json({ message: "Candidature non trouvée" });
-        }
+    // Vérifier que l'utilisateur est le propriétaire de l'offre
+    if (offer.source.toString() !== userId) {
+      return res.status(403).json({ message: "Accès non autorisé" });
+    }
 
-        // Vérifier que l'utilisateur est le propriétaire de l'offre
-        if (offer.source.toString() !== userId) {
-            return res.status(403).json({ message: "Accès non autorisé" });
-        }
+    // Mettre à jour le statut de la candidature
+    const candidature = offer.candidatures.id(candidatureId);
+    if (!candidature) {
+      return res.status(404).json({ message: "Candidature non trouvée" });
+    }
 
-        // Mettre à jour le statut de la candidature
-        const candidature = offer.candidatures.id(candidatureId);
-        if (!candidature) {
-            return res.status(404).json({ message: "Candidature non trouvée" });
-        }
+    // Normaliser et appliquer
+    const normalized = statut === 'acceptee' ? 'accepte' : (statut === 'refusee' ? 'refuse' : statut);
+    candidature.statut = normalized;
+    await offer.save();
 
-        // Normaliser les statuts côté backend (acceptee/refusee -> accepte/refuse)
-        const normalized = statut === 'acceptee' ? 'accepte' : (statut === 'refusee' ? 'refuse' : 'en_attente');
-        candidature.statut = normalized;
-        await offer.save();
+    // Gestion des effets secondaires selon le statut
+    const Notification = require("../models/notification.model");
+    const Message = require("../models/message.model");
+    const { getSocket } = require("../utils/socket");
 
-        // Créer une notification pour le candidat
-        const Notification = require("../models/notification.model");
+    if (normalized === 'accepte') {
+      // 1) Notification claire au candidat
+      const notif = await Notification.create({
+        expediteur: userId,
+        receveur: candidature.candidat,
+        contenue: `Votre candidature a été acceptée pour cette offre: "${offer.titre}".`,
+        type: 'statut_candidature',
+        offre: offer._id,
+        candidat: candidature.candidat,
+        lu: false
+      });
 
-        const notif = await Notification.create({
-            expediteur: userId,
-            receveur: candidature.candidat,
-            contenue: `Votre candidature pour "${offer.titre}" a été ${normalized === 'accepte' ? 'acceptée' : normalized === 'refuse' ? 'refusée' : 'mise à jour'}.`,
-            type: 'statut_candidature',
-            offre: offer._id,
-            candidat: candidature.candidat,
-            lu: false
-        });
+      // 2) Premier message automatique du recruteur
+      const autoMessage = await Message.create({
+        expediteur: userId,
+        destinataire: candidature.candidat,
+        contenu: 'Bienvenue, votre candidature a été acceptée, nous allons collaborer ensemble.',
+        offre: offer._id,
+        lu: false,
+        type: 'systeme'
+      });
 
-        // Emit temps réel au candidat
+      // 3) Temps réel: notifier le candidat (notif + message)
+      try {
         const io = getSocket();
-        if (io && candidature.candidat) {
+        if (io) {
           io.to(`user:${candidature.candidat.toString()}`).emit('notification:new', {
             _id: notif._id,
             contenue: notif.contenue,
@@ -351,15 +429,29 @@ exports.updateApplicationStatus = async (req, res) => {
             lu: notif.lu,
             createdAt: notif.createdAt
           });
+          io.to(`user:${candidature.candidat.toString()}`).emit('message:new', {
+            _id: autoMessage._id,
+            expediteur: autoMessage.expediteur,
+            destinataire: autoMessage.destinataire,
+            contenu: autoMessage.contenu,
+            offre: autoMessage.offre,
+            lu: autoMessage.lu,
+            createdAt: autoMessage.createdAt,
+            type: autoMessage.type
+          });
         }
-
-        res.status(200).json({
-            message: `Candidature ${normalized === 'accepte' ? 'acceptée' : normalized === 'refuse' ? 'refusée' : 'mise à jour'} avec succès`,
-            candidature: candidature
-        });
-
-    } catch (error) {
-        console.error('Erreur dans updateApplicationStatus:', error);
-        res.status(500).json({ message: error.message });
+      } catch (_) { /* no-op */ }
     }
-}
+
+    // Pas de notification si "refuse" (exigence)
+
+    return res.status(200).json({
+      success: true,
+      message: `Candidature ${normalized} avec succès`,
+      candidature
+    });
+  } catch (error) {
+    console.error('Erreur dans updateApplicationStatus:', error);
+    return res.status(500).json({ message: error.message });
+  }
+};
