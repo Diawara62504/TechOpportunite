@@ -49,7 +49,20 @@ titre: { type: String, default: '' }, // Ex: "Développeur Full-Stack Senior"
     type: String,
     enum: ['pending', 'approved', 'rejected', 'suspended'],
     default: 'pending'
+  },
+  credibilityScore: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100
+  },
+  credibilityIndicators: {
+    emailVerified: { type: Boolean, default: false },
+    hasCV: { type: Boolean, default: false },
+    profileCompleted: { type: Boolean, default: false },
+    hasReferences: { type: Boolean, default: false },
+    reportsCount: { type: Number, default: 0 }
   }
 });
 
-module.exports = mongoose.model("Inscrits", userSchema);
+module.exports = mongoose.model("User", userSchema);

@@ -15,7 +15,7 @@ async function tokenValide(req, res, next) {
       return res.status(401).json({ message: "Non authentifié: token manquant" });
     }
 
-    const decoded = jwt.verify(accessToken, process.env.SECRET_KEY);
+    const decoded = jwt.verify(accessToken, process.env.JWT_SECRET);
 
     // Récupérer le rôle utilisateur si possible
     let role = 'candidat';

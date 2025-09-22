@@ -34,6 +34,36 @@ exports.register = async (req, res) => {
       console.log('Erreur de parsing des données JSON:', parseError);
     }
 
+    // Calculer les indicateurs de crédibilité
+    const credibilityIndicators = {
+      emailVerified: false, // À vérifier plus tard
+      hasCV: cvUrl ? true : false,
+      profileCompleted: titre && entreprise && localisation && about ? true : false,
+      hasReferences: false, // À ajouter plus tard
+      reportsCount: 0
+    };
+
+    // Calculer le score de crédibilité
+    const calculateCredibilityScore = (indicators, userData) => {
+      let score = 0;
+
+      if (indicators.emailVerified) score += 20;
+      if (indicators.hasCV) score += 15;
+      if (indicators.profileCompleted) score += 20;
+      if (indicators.hasReferences) score += 15;
+      if (userData.experience && userData.experience.length > 0) score += 15;
+      if (userData.formation && userData.formation.length > 0) score += 10;
+      if (userData.competences && userData.competences.length > 0) score += 5;
+
+      return Math.min(Math.max(score, 0), 100);
+    };
+
+    const credibilityScore = calculateCredibilityScore(credibilityIndicators, {
+      experience: parsedExperience,
+      formation: parsedFormation,
+      competences
+    });
+
     const ajout = await user.create({
       nom,
       prenom,
@@ -54,7 +84,38 @@ exports.register = async (req, res) => {
       formation: parsedFormation,
       competences: competences ? (Array.isArray(competences) ? competences : [competences]) : [],
       langues: parsedLangues,
-      validationStatus: role === 'admin' ? 'approved' : 'pending'
+      validationStatus: role === 'admin' ? 'approved' : 'pending',
+      credibilityScore,
+      credibilityIndicators
+    });
+
+    // Générer le token avec une expiration plus longue
+    const token = jwt.sign(
+      { id: ajout._id, role: ajout.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    // Générer le refresh token
+    const refreshToken = jwt.sign(
+      { id: ajout._id },
+      process.env.REFRESH_TOKEN_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Sauvegarder les tokens dans des cookies sécurisés
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000 // 24 heures
+    });
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 jours
     });
 
     // Retirer le mot de passe avant de renvoyer la réponse
@@ -90,22 +151,34 @@ exports.login = async (req, res) => {
     if (isValable.validationStatus === 'suspended') {
       return res.status(403).json({ message: "Votre compte est suspendu. Contactez l'administration." });
     }
-    const token = jwt.sign({ id: isValable._id }, process.env.SECRET_KEY, {
-      expiresIn: "1h",
-    });
-    const refreshToken = jwt.sign({ id: isValable._id }, process.env.SECRET_REFRESH_KEY, {
-      expiresIn: "7d",
-    });
-    // Cookies compatibles dev (http) et prod (https)
-    const isProd = process.env.NODE_ENV === 'production';
-    const cookieOptions = {
+    // Générer le token avec une expiration plus longue
+    const token = jwt.sign(
+      { id: isValable._id, role: isValable.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "24h" }
+    );
+
+    // Générer le refresh token
+    const refreshToken = jwt.sign(
+      { id: isValable._id },
+      process.env.REFRESH_TOKEN_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // Sauvegarder les tokens dans des cookies sécurisés
+    res.cookie('token', token, {
       httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
-      maxAge: 60 * 60 * 1000,
-    };
-    res.cookie("token", token, cookieOptions);
-    res.cookie("refreshToken", refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000 // 24 heures
+    });
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 jours
+    });
 
     // On retire le mot de passe avant de renvoyer l'utilisateur
     const userToReturn = isValable.toObject();
@@ -123,21 +196,22 @@ exports.refreshToken = (req, res) => {
     return res.status(401).json({ message: "Refresh token manquant" });
   }
 
-  jwt.verify(refreshToken, process.env.SECRET_REFRESH_KEY, (err, decoded) => {
+  jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, decoded) => {
     if (err) {
       return res.status(403).json({ message: "Refresh token invalide" });
     }
 
-    const newAccessToken = jwt.sign({ id: decoded.id }, process.env.SECRET_KEY, {
-      expiresIn: "1h",
-    });
+    const newAccessToken = jwt.sign(
+      { id: decoded.id, role: decoded.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "24h" }
+    );
 
-    const isProd = process.env.NODE_ENV === 'production';
     res.cookie("token", newAccessToken, {
       httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
-      maxAge: 60 * 60 * 1000, // 1 heure
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000, // 24 heures
     });
 
     res.json({ message: "Token rafraîchi avec succès" });
@@ -309,6 +383,20 @@ exports.getCandidatePublicProfile = async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur getCandidatePublicProfile:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
+// Récupérer le profil de l'utilisateur connecté
+exports.getUserProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    }
+    res.json(user);
+  } catch (error) {
+    console.error('Erreur getUserProfile:', error);
     res.status(500).json({ message: 'Erreur serveur' });
   }
 };

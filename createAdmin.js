@@ -1,12 +1,12 @@
 const mongoose = require('mongoose');
 const User = require('./models/user.model');
 const bcrypt = require('bcryptjs');
-require('dotenv').config();
+require('dotenv').config({ path: "./config/.env" });
 
 async function createAdmin() {
   try {
     // Connexion à MongoDB
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/techopportunites');
+    await mongoose.connect(process.env.MONGO);
     console.log('✅ Connecté à MongoDB');
 
     // Vérifier si un admin existe déjà
