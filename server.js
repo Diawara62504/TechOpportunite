@@ -16,6 +16,7 @@ const routerVideoInterview = require("./routes/videoInterview.routes");
 const routerAdminRecruiters = require("./routes/adminRecruiters.route");
 const routerRecruiter = require("./routes/recruiter.route");
 const routerNotification = require("./routes/notification.route");
+const routerMessaging = require("./routes/messaging.route");
 const routerDebug = require("./routes/debug.route");
 const cookieParser = require("cookie-parser")
 const cors = require("cors");
@@ -63,6 +64,7 @@ app.use("/api/marketplace", routerMarketplace);
 app.use("/api/video-interviews", routerVideoInterview);
 app.use('/api/recruiter', routerRecruiter);
 app.use('/api/notifications', routerNotification);
+app.use('/api/messaging', routerMessaging);
 app.use('/api/debug', routerDebug);
 app.use('/api/admin', require('./routes/admin.route'));
 app.use('/api/admin', routerAdminRecruiters);

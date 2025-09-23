@@ -416,7 +416,7 @@ exports.updateApplicationStatus = async (req, res) => {
       const autoMessage = await Message.create({
         expediteur: userId,
         destinataire: candidature.candidat,
-        contenu: 'Bienvenue, votre candidature a été acceptée, nous allons collaborer ensemble.',
+        contenu: `Bonjour ${candidature.profilCandidat?.prenom || 'Candidat'},\n\nFélicitations ! Votre candidature pour le poste "${offer.titre}" a été acceptée.\n\nNous sommes ravis de vous compter parmi nos candidats retenus. Nous allons maintenant collaborer ensemble pour la suite du processus de recrutement.\n\nN'hésitez pas à me contacter si vous avez des questions.\n\nCordialement,\nL'équipe de recrutement`,
         offre: offer._id,
         lu: false,
         type: 'systeme'
