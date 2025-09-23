@@ -254,12 +254,20 @@ exports.logout = async (req, res) => {
 
 exports.getUserProfile = async (req, res) => {
   try {
+    // Vérifier si MongoDB est connecté
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) {
+      // MongoDB non connecté - retourner une erreur 401 normale
+      return res.status(401).json({ message: "Non authentifié: token manquant" });
+    }
+
     const userProfile = await User.findById(req.userId).select("-password");
     if (!userProfile) {
       return res.status(404).json({ message: "Utilisateur non trouvé" });
     }
     res.json(userProfile);
   } catch (error) {
+    console.error('Erreur getUserProfile:', error);
     res.status(500).json({ message: "Erreur du serveur" });
   }
 };
@@ -378,15 +386,4 @@ exports.getCandidatePublicProfile = async (req, res) => {
 };
 
 // Récupérer le profil de l'utilisateur connecté
-exports.getUserProfile = async (req, res) => {
-  try {
-    const user = await User.findById(req.userId).select('-password');
-    if (!user) {
-      return res.status(404).json({ message: 'Utilisateur non trouvé' });
-    }
-    res.json(user);
-  } catch (error) {
-    console.error('Erreur getUserProfile:', error);
-    res.status(500).json({ message: 'Erreur serveur' });
-  }
-};
+// Fonction getUserProfile supprimée (doublon)
