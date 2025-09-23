@@ -2,6 +2,7 @@ const user = require("../models/user.model");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { token } = require("morgan");
+const NotificationService = require("../services/notificationService");
 
 exports.register = async (req, res) => {
   try {
@@ -84,7 +85,7 @@ exports.register = async (req, res) => {
       formation: parsedFormation,
       competences: competences ? (Array.isArray(competences) ? competences : [competences]) : [],
       langues: parsedLangues,
-      validationStatus: role === 'admin' ? 'approved' : 'pending',
+      validationStatus: role === 'admin' ? 'validated' : 'pending',
       credibilityScore,
       credibilityIndicators
     });
@@ -94,6 +95,16 @@ exports.register = async (req, res) => {
     // Retirer le mot de passe avant de renvoyer la réponse
     const userResponse = ajout.toObject();
     delete userResponse.password;
+
+    // Si c'est un recruteur, notifier les admins
+    if (role === 'recruteur') {
+      try {
+        await NotificationService.notifyAdminsNewRecruiter(ajout._id);
+      } catch (notificationError) {
+        console.error('Erreur lors de la notification aux admins:', notificationError);
+        // Ne pas faire échouer l'inscription si la notification échoue
+      }
+    }
 
     res.status(200).json(userResponse);
   } catch (error) {

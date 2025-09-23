@@ -15,10 +15,17 @@ exports.createOffer = async (req, res) => {
         if (!req.userId) {
             return res.status(401).json({ message: "Utilisateur non authentifié" });
         }
-        // Vérifier le rôle et l'email professionnel
-        const currentUser = await User.findById(req.userId).select('role email');
+        // Vérifier le rôle et le statut de validation
+        const currentUser = await User.findById(req.userId).select('role email validationStatus');
         if (!currentUser || currentUser.role !== 'recruteur') {
             return res.status(403).json({ message: "Seuls les recruteurs peuvent publier des offres" });
+        }
+        
+        // Vérifier que le recruteur est validé
+        if (currentUser.validationStatus !== 'validated') {
+            return res.status(403).json({ 
+                message: "Votre compte recruteur n'est pas encore validé. Veuillez attendre la validation de l'administrateur." 
+            });
         }
         // Valider l'email professionnel
         const emailValidation = await ValidationService.validateProfessionalEmail(currentUser.email);

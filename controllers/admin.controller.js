@@ -1,5 +1,6 @@
 const User = require('../models/user.model');
 const AdminAction = require('../models/adminAction.model');
+const NotificationService = require('../services/notificationService');
 
 // Obtenir la liste des recruteurs avec pagination et filtres
 exports.getRecruiters = async (req, res) => {
@@ -60,7 +61,7 @@ exports.getRecruiters = async (req, res) => {
 
     const statusCounts = {
       pending: 0,
-      approved: 0,
+      validated: 0,
       rejected: 0,
       suspended: 0
     };
@@ -150,7 +151,7 @@ exports.updateRecruiterStatus = async (req, res) => {
 
     switch (action) {
       case 'approve':
-        newStatus = 'approved';
+        newStatus = 'validated';
         break;
       case 'reject':
         newStatus = 'rejected';
@@ -159,7 +160,7 @@ exports.updateRecruiterStatus = async (req, res) => {
         newStatus = 'suspended';
         break;
       case 'reactivate':
-        newStatus = 'approved';
+        newStatus = 'validated';
         break;
       default:
         return res.status(400).json({
@@ -171,6 +172,14 @@ exports.updateRecruiterStatus = async (req, res) => {
     // Mettre à jour le statut
     recruiter.validationStatus = newStatus;
     await recruiter.save();
+
+    // Envoyer une notification au recruteur
+    try {
+      await NotificationService.sendRecruiterValidationNotification(id, newStatus, adminId);
+    } catch (notificationError) {
+      console.error('Erreur lors de l\'envoi de la notification:', notificationError);
+      // Ne pas faire échouer la requête si la notification échoue
+    }
 
     // Logger l'action admin
     await AdminAction.create({
@@ -225,7 +234,7 @@ exports.bulkUpdateRecruiters = async (req, res) => {
     let newStatus;
     switch (action) {
       case 'approve':
-        newStatus = 'approved';
+        newStatus = 'validated';
         break;
       case 'reject':
         newStatus = 'rejected';
@@ -288,14 +297,14 @@ exports.getAdminStats = async (req, res) => {
     const [
       totalRecruiters,
       pendingRecruiters,
-      approvedRecruiters,
+      validatedRecruiters,
       rejectedRecruiters,
       suspendedRecruiters,
       recentActions
     ] = await Promise.all([
       User.countDocuments({ role: 'recruteur' }),
       User.countDocuments({ role: 'recruteur', validationStatus: 'pending' }),
-      User.countDocuments({ role: 'recruteur', validationStatus: 'approved' }),
+      User.countDocuments({ role: 'recruteur', validationStatus: 'validated' }),
       User.countDocuments({ role: 'recruteur', validationStatus: 'rejected' }),
       User.countDocuments({ role: 'recruteur', validationStatus: 'suspended' }),
       AdminAction.find()
@@ -312,7 +321,7 @@ exports.getAdminStats = async (req, res) => {
         stats: {
           total: totalRecruiters,
           pending: pendingRecruiters,
-          approved: approvedRecruiters,
+          validated: validatedRecruiters,
           rejected: rejectedRecruiters,
           suspended: suspendedRecruiters
         },
