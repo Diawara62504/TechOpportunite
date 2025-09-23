@@ -105,16 +105,16 @@ exports.register = async (req, res) => {
 
     // Sauvegarder les tokens dans des cookies sécurisés
     res.cookie('token', token, {
-      httpOnly: true,
+      httpOnly: false, // Changé pour permettre l'accès depuis le frontend
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: 'none', // Changé pour les domaines croisés
       maxAge: 24 * 60 * 60 * 1000 // 24 heures
     });
 
     res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
+      httpOnly: false, // Changé pour permettre l'accès depuis le frontend
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: 'none', // Changé pour les domaines croisés
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 jours
     });
 
@@ -167,16 +167,16 @@ exports.login = async (req, res) => {
 
     // Sauvegarder les tokens dans des cookies sécurisés
     res.cookie('token', token, {
-      httpOnly: true,
+      httpOnly: false, // Changé pour permettre l'accès depuis le frontend
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: 'none', // Changé pour les domaines croisés
       maxAge: 24 * 60 * 60 * 1000 // 24 heures
     });
 
     res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
+      httpOnly: false, // Changé pour permettre l'accès depuis le frontend
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: 'none', // Changé pour les domaines croisés
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 jours
     });
 
