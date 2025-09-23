@@ -61,7 +61,7 @@ exports.getRecruiters = async (req, res) => {
 
     const statusCounts = {
       pending: 0,
-      validated: 0,
+      approved: 0,
       rejected: 0,
       suspended: 0
     };
@@ -151,7 +151,7 @@ exports.updateRecruiterStatus = async (req, res) => {
 
     switch (action) {
       case 'approve':
-        newStatus = 'validated';
+        newStatus = 'approved';
         break;
       case 'reject':
         newStatus = 'rejected';
@@ -160,7 +160,7 @@ exports.updateRecruiterStatus = async (req, res) => {
         newStatus = 'suspended';
         break;
       case 'reactivate':
-        newStatus = 'validated';
+        newStatus = 'approved';
         break;
       default:
         return res.status(400).json({
@@ -234,7 +234,7 @@ exports.bulkUpdateRecruiters = async (req, res) => {
     let newStatus;
     switch (action) {
       case 'approve':
-        newStatus = 'validated';
+        newStatus = 'approved';
         break;
       case 'reject':
         newStatus = 'rejected';
@@ -297,14 +297,14 @@ exports.getAdminStats = async (req, res) => {
     const [
       totalRecruiters,
       pendingRecruiters,
-      validatedRecruiters,
+      approvedRecruiters,
       rejectedRecruiters,
       suspendedRecruiters,
       recentActions
     ] = await Promise.all([
       User.countDocuments({ role: 'recruteur' }),
       User.countDocuments({ role: 'recruteur', validationStatus: 'pending' }),
-      User.countDocuments({ role: 'recruteur', validationStatus: 'validated' }),
+      User.countDocuments({ role: 'recruteur', validationStatus: 'approved' }),
       User.countDocuments({ role: 'recruteur', validationStatus: 'rejected' }),
       User.countDocuments({ role: 'recruteur', validationStatus: 'suspended' }),
       AdminAction.find()
@@ -321,7 +321,7 @@ exports.getAdminStats = async (req, res) => {
         stats: {
           total: totalRecruiters,
           pending: pendingRecruiters,
-          validated: validatedRecruiters,
+          approved: approvedRecruiters,
           rejected: rejectedRecruiters,
           suspended: suspendedRecruiters
         },

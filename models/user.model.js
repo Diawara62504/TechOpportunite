@@ -47,7 +47,7 @@ titre: { type: String, default: '' }, // Ex: "Développeur Full-Stack Senior"
   cvUrl: { type: String, default: '' },
   validationStatus: {
     type: String,
-    enum: ['pending', 'validated', 'rejected', 'suspended'],
+    enum: ['pending', 'approved', 'rejected', 'suspended'],
     default: 'pending'
   },
   credibilityScore: {

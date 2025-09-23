@@ -85,7 +85,7 @@ exports.register = async (req, res) => {
       formation: parsedFormation,
       competences: competences ? (Array.isArray(competences) ? competences : [competences]) : [],
       langues: parsedLangues,
-      validationStatus: role === 'admin' ? 'validated' : 'pending',
+      validationStatus: role === 'admin' ? 'approved' : 'pending',
       credibilityScore,
       credibilityIndicators
     });

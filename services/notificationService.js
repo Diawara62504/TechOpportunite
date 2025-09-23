@@ -13,9 +13,9 @@ class NotificationService {
       let title, message, type;
 
       switch (status) {
-        case 'validated':
-          title = '🎉 Votre compte recruteur a été validé !';
-          message = 'Félicitations ! Votre compte recruteur a été validé par nos administrateurs. Vous pouvez maintenant publier des offres d\'emploi et commencer à recruter des talents.';
+        case 'approved':
+          title = '🎉 Votre compte recruteur a été approuvé !';
+          message = 'Félicitations ! Votre compte recruteur a été approuvé par nos administrateurs. Vous pouvez maintenant publier des offres d\'emploi et commencer à recruter des talents.';
           type = 'success';
           break;
         case 'rejected':
@@ -48,7 +48,55 @@ class NotificationService {
 
       await notification.save();
 
-      // TODO: Ajouter l'envoi d'email ici si nécessaire
+      // Envoyer une notification WebSocket en temps réel
+      try {
+        const { getSocket } = require('../utils/socket');
+        const io = getSocket();
+        if (io) {
+          io.to(`user:${recruiterId}`).emit('notification:new', {
+            _id: notification._id,
+            title: notification.title,
+            message: notification.message,
+            type: notification.type,
+            data: notification.data,
+            createdAt: notification.createdAt
+          });
+        }
+      } catch (wsError) {
+        console.error('Erreur WebSocket lors de l\'envoi de notification:', wsError);
+      }
+
+      // Envoyer un email de notification
+      try {
+        const { sendEmail } = require('../utils/mailer');
+        await sendEmail({
+          to: recruiter.email,
+          subject: title,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #333;">${title}</h2>
+              <p style="color: #666; line-height: 1.6;">${message}</p>
+              ${status === 'approved' ? `
+                <div style="background-color: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 16px; margin: 20px 0;">
+                  <h3 style="color: #0c4a6e; margin-top: 0;">Prochaines étapes :</h3>
+                  <ul style="color: #0c4a6e;">
+                    <li>Connectez-vous à votre tableau de bord recruteur</li>
+                    <li>Publiez votre première offre d'emploi</li>
+                    <li>Explorez les profils des candidats</li>
+                  </ul>
+                </div>
+              ` : ''}
+              <p style="color: #999; font-size: 14px; margin-top: 30px;">
+                Si vous avez des questions, n'hésitez pas à nous contacter.
+              </p>
+            </div>
+          `
+        });
+        console.log(`Email de notification envoyé à ${recruiter.email}`);
+      } catch (emailError) {
+        console.error('Erreur lors de l\'envoi de l\'email:', emailError);
+      }
+
       console.log(`Notification envoyée au recruteur ${recruiter.email}: ${title}`);
 
       return notification;

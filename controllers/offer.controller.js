@@ -11,24 +11,11 @@ const Notification = require("../models/notification.model");
 
 exports.createOffer = async (req, res) => {
     try {
-        // Vérifier l'authentification
-        if (!req.userId) {
-            return res.status(401).json({ message: "Utilisateur non authentifié" });
-        }
-        // Vérifier le rôle et le statut de validation
-        const currentUser = await User.findById(req.userId).select('role email validationStatus');
-        if (!currentUser || currentUser.role !== 'recruteur') {
-            return res.status(403).json({ message: "Seuls les recruteurs peuvent publier des offres" });
-        }
+        // L'authentification et la validation du recruteur sont gérées par les middlewares
+        // req.user contient maintenant toutes les informations nécessaires
         
-        // Vérifier que le recruteur est validé
-        if (currentUser.validationStatus !== 'validated') {
-            return res.status(403).json({ 
-                message: "Votre compte recruteur n'est pas encore validé. Veuillez attendre la validation de l'administrateur." 
-            });
-        }
         // Valider l'email professionnel
-        const emailValidation = await ValidationService.validateProfessionalEmail(currentUser.email);
+        const emailValidation = await ValidationService.validateProfessionalEmail(req.user.email);
         if (!emailValidation.isValid) {
             return res.status(403).json({ message: emailValidation.reason });
         }
@@ -56,7 +43,7 @@ exports.createOffer = async (req, res) => {
         const offerData = { 
             ...req.body,
             ...computed, 
-            source: req.userId,
+            source: req.user.id,
             date: new Date(),
             statut: 'en_attente_validation',
             analyseFraude: fraudAnalysis
