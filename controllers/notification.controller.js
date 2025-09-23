@@ -1,149 +1,235 @@
-const notif = require("../models/notification.model");
-const offer = require("../models/offer.model");
-const User = require("../models/user.model");
-const { getSocket } = require("../utils/socket");
+const Notification = require('../models/notification.model');
+const User = require('../models/user.model');
 
-exports.ajoutnotif = async (req, res) => {
-  const { receveur, contenue, type, offre } = req.body;
+// Obtenir les notifications d'un utilisateur
+exports.getUserNotifications = async (req, res) => {
   try {
-    let notificationData = {
-      expediteur: req.userId,
-      contenue,
-      type: type || 'general',
-      offre,
-      lu: false
-    };
+    const userId = req.userId;
+    const { page = 1, limit = 20, unreadOnly = false } = req.query;
 
-    if (type === 'candidature') {
-      const offreDoc = await offer.findById(offre);
-      if (!offreDoc) {
-        return res.status(404).json({ message: "Offre non trouvée" });
-      }
-      notificationData.receveur = offreDoc.recruteur; // ✅ le recruteur reçoit
-      notificationData.candidat = req.userId; // ✅ le vrai candidat
-    } else {
-      // Cas général : receveur passé dans le body
-      notificationData.receveur = receveur;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Utilisateur non authentifié"
+      });
     }
 
-    const created = await notif.create(notificationData);
-
-    // Émission temps réel vers le receveur
-    try {
-      const io = getSocket();
-      if (io && created.receveur) {
-        io.to(`user:${created.receveur.toString()}`).emit('notification:new', {
-          _id: created._id,
-          contenue: created.contenue,
-          type: created.type,
-          offre: created.offre,
-          candidat: created.candidat,
-          lu: created.lu,
-          createdAt: created.createdAt
-        });
-      }
-    } catch (e) {
-      // no-op
+    // Construire les filtres
+    const filters = { userId };
+    if (unreadOnly === 'true') {
+      filters.lu = false;
     }
 
-    res.json({ message: "Envoyé" });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+    // Calculer la pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
+    // Récupérer les notifications
+    const notifications = await Notification.find(filters)
+      .populate('expediteur', 'nom prenom email')
+      .populate('offre', 'titre')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
 
-exports.affichenotif = async (req, res) => {
-  try {
-    const affiche = await notif
-      .find({ receveur: req.userId })
-      .select("-receveur")
-      .populate("expediteur", "prenom nom email")
-      .populate("offre", "titre type localisation")
-      .populate(
-        "candidat",
-        "prenom nom email titre localisation telephone linkedin github portfolio cvUrl competences preference"
-      )
-      .sort({ createdAt: -1 }); // Trier par date décroissante
-    res.json(affiche);
+    // Compter le total
+    const total = await Notification.countDocuments(filters);
+    const totalPages = Math.ceil(total / parseInt(limit));
+
+    // Compter les notifications non lues
+    const unreadCount = await Notification.countDocuments({ userId, lu: false });
+
+    res.json({
+      success: true,
+      data: {
+        notifications,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages,
+          totalItems: total,
+          itemsPerPage: parseInt(limit)
+        },
+        unreadCount
+      }
+    });
   } catch (error) {
-    res.status(500).json({ message: "Erreur lors de la récupération des notifications" });
+    console.error('Erreur lors de la récupération des notifications:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des notifications"
+    });
   }
 };
 
 // Marquer une notification comme lue
 exports.markAsRead = async (req, res) => {
   try {
-    const { id } = req.params;
-    const notification = await notif.findOneAndUpdate(
-      { _id: id, receveur: req.userId },
+    const { notificationId } = req.params;
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Utilisateur non authentifié"
+      });
+    }
+
+    const notification = await Notification.findOneAndUpdate(
+      { _id: notificationId, userId },
       { lu: true },
       { new: true }
     );
+
     if (!notification) {
-      return res.status(404).json({ message: "Notification non trouvée" });
+      return res.status(404).json({
+        success: false,
+        message: "Notification non trouvée"
+      });
     }
-    res.json(notification);
+
+    res.json({
+      success: true,
+      message: "Notification marquée comme lue",
+      data: notification
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Erreur lors du marquage de la notification:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors du marquage de la notification"
+    });
+  }
+};
+
+// Marquer toutes les notifications comme lues
+exports.markAllAsRead = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Utilisateur non authentifié"
+      });
+    }
+
+    const result = await Notification.updateMany(
+      { userId, lu: false },
+      { lu: true }
+    );
+
+    res.json({
+      success: true,
+      message: `${result.modifiedCount} notification(s) marquée(s) comme lue(s)`,
+      data: {
+        modifiedCount: result.modifiedCount
+      }
+    });
+  } catch (error) {
+    console.error('Erreur lors du marquage des notifications:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors du marquage des notifications"
+    });
   }
 };
 
 // Supprimer une notification
 exports.deleteNotification = async (req, res) => {
   try {
-    const { id } = req.params;
-    const notification = await notif.findOneAndDelete({
-      _id: id,
-      receveur: req.userId
-    });
-    if (!notification) {
-      return res.status(404).json({ message: "Notification non trouvée" });
-    }
-    res.json({ message: "Notification supprimée" });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+    const { notificationId } = req.params;
+    const userId = req.userId;
 
-// Compter les notifications non lues
-exports.countUnread = async (req, res) => {
-  try {
-    const count = await notif.countDocuments({
-      receveur: req.userId,
-      lu: false
-    });
-    res.json({ count });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// Créer une notification pour changement de statut de candidature
-exports.notifierChangementStatut = async (candidatId, offreId, nouveauStatut) => {
-  try {
-    const offre = await offer.findById(offreId).populate('source', 'nom prenom');
-    const candidat = await User.findById(candidatId);
-
-    let message = '';
-    if (nouveauStatut === 'accepte') {
-      message = `Félicitations ! Votre candidature pour "${offre.titre}" a été acceptée.`;
-    } else if (nouveauStatut === 'refuse') {
-      message = `Votre candidature pour "${offre.titre}" a été refusée.`;
-    }
-
-    if (message) {
-      await notif.create({
-        expediteur: offre.source._id, // Le recruteur
-        receveur: candidatId, // Le candidat
-        contenue: message,
-        type: 'statut_candidature',
-        offre: offreId,
-        candidat: candidatId,
-        lu: false
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Utilisateur non authentifié"
       });
     }
+
+    const notification = await Notification.findOneAndDelete({
+      _id: notificationId,
+      userId
+    });
+
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: "Notification non trouvée"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Notification supprimée",
+      data: notification
+    });
   } catch (error) {
-    console.error('Erreur lors de la création de notification de statut:', error);
+    console.error('Erreur lors de la suppression de la notification:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la suppression de la notification"
+    });
+  }
+};
+
+// Obtenir les statistiques des notifications
+exports.getNotificationStats = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Utilisateur non authentifié"
+      });
+    }
+
+    const stats = await Notification.aggregate([
+      { $match: { userId: userId } },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          unread: {
+            $sum: { $cond: [{ $eq: ['$lu', false] }, 1, 0] }
+          },
+          byType: {
+            $push: {
+              type: '$type',
+              lu: '$lu'
+            }
+          }
+        }
+      }
+    ]);
+
+    // Calculer les statistiques par type
+    const typeStats = {};
+    if (stats.length > 0) {
+      stats[0].byType.forEach(item => {
+        if (!typeStats[item.type]) {
+          typeStats[item.type] = { total: 0, unread: 0 };
+        }
+        typeStats[item.type].total++;
+        if (!item.lu) {
+          typeStats[item.type].unread++;
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        total: stats[0]?.total || 0,
+        unread: stats[0]?.unread || 0,
+        byType: typeStats
+      }
+    });
+  } catch (error) {
+    console.error('Erreur lors de la récupération des statistiques:', error);
+    res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération des statistiques"
+    });
   }
 };

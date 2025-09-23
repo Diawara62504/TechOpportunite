@@ -8,6 +8,7 @@ const { AnalyticsService } = require("./analytics.controller");
 const ValidationService = require("../services/validationService");
 const FraudDetectionService = require("../services/fraudDetectionService");
 const Notification = require("../models/notification.model");
+const CandidateNotificationService = require("../services/candidateNotificationService");
 
 exports.createOffer = async (req, res) => {
     try {
@@ -389,7 +390,18 @@ exports.updateApplicationStatus = async (req, res) => {
     const { getSocket } = require("../utils/socket");
 
     if (normalized === 'accepte') {
-      // 1) Notification claire au candidat
+      // 1) Notification claire au candidat avec le nouveau service
+      try {
+        await CandidateNotificationService.notifyApplicationAccepted(
+          candidature.candidat,
+          offer._id,
+          userId
+        );
+      } catch (notificationError) {
+        console.error('Erreur lors de l\'envoi de la notification d\'acceptation:', notificationError);
+      }
+
+      // Garder l'ancienne notification pour compatibilité
       const notif = await Notification.create({
         expediteur: userId,
         receveur: candidature.candidat,
@@ -437,7 +449,18 @@ exports.updateApplicationStatus = async (req, res) => {
       } catch (_) { /* no-op */ }
     }
 
-    // Pas de notification si "refuse" (exigence)
+    // Notification pour les candidatures refusées
+    if (normalized === 'refuse') {
+      try {
+        await CandidateNotificationService.notifyApplicationRejected(
+          candidature.candidat,
+          offer._id,
+          userId
+        );
+      } catch (notificationError) {
+        console.error('Erreur lors de l\'envoi de la notification de rejet:', notificationError);
+      }
+    }
 
     return res.status(200).json({
       success: true,

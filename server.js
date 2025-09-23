@@ -15,6 +15,7 @@ const routerMarketplace = require("./routes/marketplace.routes");
 const routerVideoInterview = require("./routes/videoInterview.routes");
 const routerAdminRecruiters = require("./routes/adminRecruiters.route");
 const routerRecruiter = require("./routes/recruiter.route");
+const routerNotification = require("./routes/notification.route");
 const cookieParser = require("cookie-parser")
 const cors = require("cors");
 const { error } = require("./middlewares/error.middleware");
@@ -60,6 +61,7 @@ app.use("/gamification", routerGamification);
 app.use("/marketplace", routerMarketplace);
 app.use("/video-interviews", routerVideoInterview);
 app.use('/recruiter', routerRecruiter);
+app.use('/notifications', routerNotification);
 app.use('/admin', require('./routes/admin.route'));
 app.use('/admin', routerAdminRecruiters);
 
