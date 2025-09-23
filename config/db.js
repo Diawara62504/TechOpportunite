@@ -29,10 +29,10 @@ exports.connect = async () => {
     };
 
     // Utiliser l'URI MongoDB depuis les variables d'environnement
-    const mongoUri = process.env.MONGODB_URI || process.env.MONGO;
+    const mongoUri = process.env.MONGODB_URI || process.env.MONGO || 'mongodb://localhost:27017/techopportunites';
 
     if (!mongoUri) {
-      throw new Error("URI MongoDB manquante dans les variables d'environnement");
+      console.log("⚠️ URI MongoDB manquante, utilisation de la base locale par défaut");
     }
 
     console.log("🔄 Tentative de connexion à MongoDB...");
