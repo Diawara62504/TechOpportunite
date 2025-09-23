@@ -137,8 +137,6 @@ server.listen(port, () => {
   const baseUrl = process.env.NODE_ENV === 'production'
     ? 'https://techopportunite.onrender.com'
     : `http://localhost:${port}`;
-  console.log(`🚀 Serveur démarré avec succès !`);
-  console.log(`📍 Port: ${port}`);
-  console.log(`🌐 URL: ${baseUrl}`);
-  console.log(`📊 Environnement: ${process.env.NODE_ENV || 'development'}`);
+  console.log(` Serveur démarré avec succès !`);
+  
 });

@@ -89,34 +89,7 @@ exports.register = async (req, res) => {
       credibilityIndicators
     });
 
-    // Générer le token avec une expiration plus longue
-    const token = jwt.sign(
-      { id: ajout._id, role: ajout.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-
-    // Générer le refresh token
-    const refreshToken = jwt.sign(
-      { id: ajout._id },
-      process.env.REFRESH_TOKEN_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    // Sauvegarder les tokens dans des cookies sécurisés
-    res.cookie('token', token, {
-      httpOnly: false, // Changé pour permettre l'accès depuis le frontend
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'none', // Changé pour les domaines croisés
-      maxAge: 24 * 60 * 60 * 1000 // 24 heures
-    });
-
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: false, // Changé pour permettre l'accès depuis le frontend
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'none', // Changé pour les domaines croisés
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 jours
-    });
+   
 
     // Retirer le mot de passe avant de renvoyer la réponse
     const userResponse = ajout.toObject();
@@ -151,17 +124,21 @@ exports.login = async (req, res) => {
     if (isValable.validationStatus === 'suspended') {
       return res.status(403).json({ message: "Votre compte est suspendu. Contactez l'administration." });
     }
+    // Vérifier que les secrets JWT sont définis
+    const jwtSecret = process.env.JWT_SECRET || 'default-jwt-secret-change-in-production';
+    const refreshSecret = process.env.REFRESH_TOKEN_SECRET || 'default-refresh-secret-change-in-production';
+
     // Générer le token avec une expiration plus longue
     const token = jwt.sign(
       { id: isValable._id, role: isValable.role },
-      process.env.JWT_SECRET,
+      jwtSecret,
       { expiresIn: "24h" }
     );
 
     // Générer le refresh token
     const refreshToken = jwt.sign(
       { id: isValable._id },
-      process.env.REFRESH_TOKEN_SECRET,
+      refreshSecret,
       { expiresIn: "7d" }
     );
 
@@ -196,14 +173,17 @@ exports.refreshToken = (req, res) => {
     return res.status(401).json({ message: "Refresh token manquant" });
   }
 
-  jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, decoded) => {
+  const jwtSecret = process.env.JWT_SECRET || 'default-jwt-secret-change-in-production';
+  const refreshSecret = process.env.REFRESH_TOKEN_SECRET || 'default-refresh-secret-change-in-production';
+
+  jwt.verify(refreshToken, refreshSecret, (err, decoded) => {
     if (err) {
       return res.status(403).json({ message: "Refresh token invalide" });
     }
 
     const newAccessToken = jwt.sign(
       { id: decoded.id, role: decoded.role },
-      process.env.JWT_SECRET,
+      jwtSecret,
       { expiresIn: "24h" }
     );
 
