@@ -114,16 +114,16 @@ exports.login = async (req, res) => {
       return res.status(404).json({ message: "Information incorrectes !" });
     }
 
-    // Vérifier le statut de validation
-    if (isValable.validationStatus === 'pending') {
-      return res.status(403).json({ message: "Votre compte est en attente de validation par un administrateur." });
-    }
-    if (isValable.validationStatus === 'rejected') {
-      return res.status(403).json({ message: "Votre compte a été rejeté. Contactez l'administration." });
-    }
-    if (isValable.validationStatus === 'suspended') {
-      return res.status(403).json({ message: "Votre compte est suspendu. Contactez l'administration." });
-    }
+    // // Vérifier le statut de validation
+    // if (isValable.validationStatus === 'pending') {
+    //   return res.status(403).json({ message: "Votre compte est en attente de validation par un administrateur." });
+    // }
+    // if (isValable.validationStatus === 'rejected') {
+    //   return res.status(403).json({ message: "Votre compte a été rejeté. Contactez l'administration." });
+    // }
+    // if (isValable.validationStatus === 'suspended') {
+    //   return res.status(403).json({ message: "Votre compte est suspendu. Contactez l'administration." });
+    // }
     // Vérifier que les secrets JWT sont définis
     const jwtSecret = process.env.JWT_SECRET || 'default-jwt-secret-change-in-production';
     const refreshSecret = process.env.REFRESH_TOKEN_SECRET || 'default-refresh-secret-change-in-production';
