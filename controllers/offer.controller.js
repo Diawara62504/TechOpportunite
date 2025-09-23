@@ -68,64 +68,84 @@ exports.createOffer = async (req, res) => {
     }
 };
 
-exports.getAllOffer = async (req, res)=>{
+exports.getAllOffer = async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1
-        const limit = parseInt(req.query.limit) || 5
-        const skip = (page - 1)*limit
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 5;
+        const skip = (page - 1) * limit;
+        const search = req.query.search || '';
 
-        
-        const search = req.query.search||''
-        const filter = {$or:[
-            {type: {$regex: search, $options: "i"}},
-            {technologies: {$regex: search, $options: "i"}},
-            {localisation: {$regex: search, $options: "i"}},
-            {domain: {$regex: search, $options: "i"}},
-            {categories: {$regex: search, $options: "i"}},
-            {country: {$regex: search, $options: "i"}},
-            {city: {$regex: search, $options: "i"}}
-        ]}
+        // Construire les critères de recherche
+        let criteria = {};
+
+        // Si une recherche textuelle est fournie
+        if (search && search.trim() !== '') {
+            criteria.$or = [
+                { type: { $regex: search, $options: "i" } },
+                { technologies: { $regex: search, $options: "i" } },
+                { localisation: { $regex: search, $options: "i" } },
+                { domain: { $regex: search, $options: "i" } },
+                { categories: { $regex: search, $options: "i" } },
+                { country: { $regex: search, $options: "i" } },
+                { city: { $regex: search, $options: "i" } },
+                { titre: { $regex: search, $options: "i" } },
+                { description: { $regex: search, $options: "i" } }
+            ];
+        }
+
         // Filtres avancés
         const { domain, categories, country, city, remoteType, relocation, visaSponsorship, type: typeParam, technologies: techParam, localisation: locParam } = req.query;
 
-        // Bloc de recherche texte libre (OR sur plusieurs champs)
-        const searchBlock = { $or: [
-          { type: { $regex: search, $options: 'i' } },
-          { technologies: { $regex: search, $options: 'i' } },
-          { localisation: { $regex: search, $options: 'i' } },
-          { domain: { $regex: search, $options: 'i' } },
-          { categories: { $regex: search, $options: 'i' } },
-          { country: { $regex: search, $options: 'i' } },
-          { city: { $regex: search, $options: 'i' } }
-        ]};
+        // Ajouter les filtres supplémentaires
+        const additionalFilters = {};
+        if (domain) additionalFilters.domain = { $regex: domain, $options: 'i' };
+        if (categories) additionalFilters.categories = { $regex: categories, $options: 'i' };
+        if (country) additionalFilters.country = { $regex: country, $options: 'i' };
+        if (city) additionalFilters.city = { $regex: city, $options: 'i' };
+        if (remoteType) additionalFilters.remoteType = remoteType;
+        if (typeof relocation !== 'undefined') additionalFilters.relocation = String(relocation).toLowerCase() === 'true';
+        if (typeof visaSponsorship !== 'undefined') additionalFilters.visaSponsorship = String(visaSponsorship).toLowerCase() === 'true';
+        if (typeParam) additionalFilters.type = { $regex: typeParam, $options: 'i' };
+        if (techParam) additionalFilters.technologies = { $regex: techParam, $options: 'i' };
+        if (locParam) additionalFilters.localisation = { $regex: locParam, $options: 'i' };
 
-        // Critères AND
-        const criteria = { $and: [ searchBlock ] };
-        if (domain) criteria.$and.push({ domain: { $regex: domain, $options: 'i' } });
-        if (categories) criteria.$and.push({ categories: { $regex: categories, $options: 'i' } });
-        if (country) criteria.$and.push({ country: { $regex: country, $options: 'i' } });
-        if (city) criteria.$and.push({ city: { $regex: city, $options: 'i' } });
-        if (remoteType) criteria.$and.push({ remoteType });
-        if (typeof relocation !== 'undefined') criteria.$and.push({ relocation: String(relocation).toLowerCase() === 'true' });
-        if (typeof visaSponsorship !== 'undefined') criteria.$and.push({ visaSponsorship: String(visaSponsorship).toLowerCase() === 'true' });
-        if (typeParam) criteria.$and.push({ type: { $regex: typeParam, $options: 'i' } });
-        if (techParam) criteria.$and.push({ technologies: { $regex: techParam, $options: 'i' } });
-        if (locParam) criteria.$and.push({ localisation: { $regex: locParam, $options: 'i' } });
-        
-        const total = await Offer.countDocuments(criteria)
-        const pageTotale = Math.ceil(total/limit)
+        // Combiner les critères
+        if (Object.keys(additionalFilters).length > 0) {
+            if (criteria.$or) {
+                criteria = { $and: [criteria, additionalFilters] };
+            } else {
+                criteria = { ...criteria, ...additionalFilters };
+            }
+        }
+
+        // Compter le total
+        const total = await Offer.countDocuments(criteria);
+        const pageTotale = Math.ceil(total / limit);
+
+        // Récupérer les offres
         const getoffer = await Offer.find(criteria)
-            .sort({ date: -1 }) // Trier par date décroissante (plus récentes en premier)
+            .sort({ date: -1 })
             .skip(skip)
             .limit(limit)
-            .populate("source" , "nom prenom email")
+            .populate("source", "nom prenom email");
+
         res.json({
-            page: page, limit: limit, pageTotale: pageTotale, total: total, getoffer: getoffer
-        }) 
+            success: true,
+            page: page,
+            limit: limit,
+            pageTotale: pageTotale,
+            total: total,
+            getoffer: getoffer
+        });
     } catch (error) {
-        res.status(500).json({message: error.message})
+        console.error('Erreur dans getAllOffer:', error);
+        res.status(500).json({
+            success: false,
+            message: "Erreur lors de la récupération des offres",
+            error: error.message
+        });
     }
-}
+};
 
 exports.updateOffer = async (req, res)=>{
     try {

@@ -12,7 +12,7 @@ const offerSchema = new mongoose.Schema({
   date: { type: Date },
   localisation: { type: String },
   source: { type: mongoose.Schema.Types.ObjectId,
-    ref: "Inscrits" },
+    ref: "User" },
   technologies: { type: String, required: true },
   // Nouveaux champs pour couverture globale des domaines et international
   domain: { type: String, enum: [
@@ -28,14 +28,14 @@ const offerSchema = new mongoose.Schema({
   persAyantPost: [
     {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Inscrits",
+      ref: "User",
     },
   ],
   candidatures: [
     {
       candidat: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Inscrits",
+        ref: "User",
         required: true
       },
       dateCandidature: {

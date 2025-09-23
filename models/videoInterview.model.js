@@ -61,8 +61,7 @@ const videoInterviewSchema = new mongoose.Schema({
   salle: {
     id: {
       type: String,
-      required: true,
-      unique: true
+      required: true
     },
     lienCandidant: {
       type: String,
