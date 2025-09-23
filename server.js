@@ -16,6 +16,7 @@ const routerVideoInterview = require("./routes/videoInterview.routes");
 const routerAdminRecruiters = require("./routes/adminRecruiters.route");
 const routerRecruiter = require("./routes/recruiter.route");
 const routerNotification = require("./routes/notification.route");
+const routerDebug = require("./routes/debug.route");
 const cookieParser = require("cookie-parser")
 const cors = require("cors");
 const { error } = require("./middlewares/error.middleware");
@@ -48,7 +49,25 @@ connect();
 
 app.use(logger);
 
-// API routes without /api prefix (as per documentation)
+// API routes with /api prefix for consistency
+app.use("/api/user", router);
+app.use("/api/offers", routerOffer);
+app.use("/api/stats", routeStats);
+app.use("/api/notification", routerNotif)
+app.use("/api/message", routerMessage);
+app.use("/api/chatbot", routerChatbot);
+app.use("/api/analytics", routerAnalytics);
+app.use("/api/ai-matching", routerAiMatching);
+app.use("/api/gamification", routerGamification);
+app.use("/api/marketplace", routerMarketplace);
+app.use("/api/video-interviews", routerVideoInterview);
+app.use('/api/recruiter', routerRecruiter);
+app.use('/api/notifications', routerNotification);
+app.use('/api/debug', routerDebug);
+app.use('/api/admin', require('./routes/admin.route'));
+app.use('/api/admin', routerAdminRecruiters);
+
+// Routes sans préfixe pour compatibilité (à supprimer progressivement)
 app.use("/user", router);
 app.use("/offers", routerOffer);
 app.use("/stats", routeStats);
