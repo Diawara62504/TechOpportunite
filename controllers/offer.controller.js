@@ -127,7 +127,11 @@ exports.getAllOffer = async (req, res) => {
             .sort({ date: -1 })
             .skip(skip)
             .limit(limit)
-            .populate("source", "nom prenom email");
+            .populate({
+                path: "source",
+                select: "nom prenom email",
+                options: { strictPopulate: false } // Permet de ne pas échouer si la référence est invalide
+            });
 
         res.json({
             success: true,
@@ -260,14 +264,26 @@ exports.applyToOffer = async (req, res) => {
         }
 
         // Récupérer certifications et derniers résultats de tests pour enrichir le snapshot
-        const certifications = await UserCertification.find({ utilisateur: candidatId })
-          .populate('certification', 'nom niveau')
-          .lean();
-        const tests = await TestResult.find({ candidat: candidatId, statut: 'termine' })
-          .populate('test', 'titre technologie niveau')
-          .sort({ dateFin: -1 })
-          .limit(5)
-          .lean();
+        let certifications = [];
+        let tests = [];
+        
+        try {
+          certifications = await UserCertification.find({ utilisateur: candidatId })
+            .populate('certification', 'nom niveau')
+            .lean();
+        } catch (e) {
+          console.log('UserCertification non disponible:', e.message);
+        }
+        
+        try {
+          tests = await TestResult.find({ candidat: candidatId, statut: 'termine' })
+            .populate('test', 'titre technologie niveau')
+            .sort({ dateFin: -1 })
+            .limit(5)
+            .lean();
+        } catch (e) {
+          console.log('TestResult non disponible:', e.message);
+        }
 
         // Créer l'objet candidature avec les données du profil
         const candidatureData = {
