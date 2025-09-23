@@ -7,8 +7,14 @@ class ValidationService {
       return { isValid: false, reason: 'Format email invalide' };
     }
 
-    // En mode développement, autoriser les emails personnels
-    if (process.env.NODE_ENV !== 'production') {
+    // Temporairement désactivé pour permettre tous les emails
+    // TODO: Réactiver la validation en production
+    return { isValid: true };
+
+    // Code de validation original (commenté temporairement)
+    /*
+    // En mode développement ou si NODE_ENV n'est pas défini, autoriser les emails personnels
+    if (process.env.NODE_ENV !== 'production' || !process.env.NODE_ENV) {
       return { isValid: true };
     }
 
@@ -28,6 +34,7 @@ class ValidationService {
     }
 
     return { isValid: true };
+    */
   }
 }
 
