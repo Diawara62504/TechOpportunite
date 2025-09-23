@@ -7,6 +7,11 @@ class ValidationService {
       return { isValid: false, reason: 'Format email invalide' };
     }
 
+    // En mode développement, autoriser les emails personnels
+    if (process.env.NODE_ENV !== 'production') {
+      return { isValid: true };
+    }
+
     const [, domain] = email.split('@');
     const personalDomains = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com'];
     if (personalDomains.includes((domain || '').toLowerCase())) {
