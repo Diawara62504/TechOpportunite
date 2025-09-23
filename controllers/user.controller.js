@@ -1,4 +1,4 @@
-const user = require("../models/user.model");
+const User = require("../models/user.model");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { token } = require("morgan");
@@ -8,7 +8,7 @@ exports.register = async (req, res) => {
   try {
     const { nom, prenom, email, password, preference, role, titre, entreprise, localisation, telephone, linkedin, github, portfolio, about, experience, formation, competences, langues } = req.body;
 
-    const userExist = await user.findOne({ email });
+    const userExist = await User.findOne({ email });
     if (userExist) {
       return res.status(404).json({ message: "Utilisateur déjà inscrit" });
     }
@@ -65,7 +65,7 @@ exports.register = async (req, res) => {
       competences
     });
 
-    const ajout = await user.create({
+    const ajout = await User.create({
       nom,
       prenom,
       email,
@@ -116,7 +116,7 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const isValable = await user.findOne({ email });
+    const isValable = await User.findOne({ email });
     if (!isValable) {
       return res.status(404).json({ message: "Informations incorrectes !" });
     }
@@ -220,10 +220,10 @@ exports.getUser = async (req, res) => {
         { email: { $regex: search, $options: "i" } },
       ],
     };
-    const total = await user.countDocuments(filter);
+    const total = await User.countDocuments(filter);
     const pageTotale = Math.floor(total / limit);
 
-    const affiche = await user.find(filter).skip(skip).limit(limit);
+    const affiche = await User.find(filter).skip(skip).limit(limit);
     res.json({
       page: page,
       limit: limit,
@@ -254,7 +254,7 @@ exports.logout = async (req, res) => {
 
 exports.getUserProfile = async (req, res) => {
   try {
-    const userProfile = await user.findById(req.userId).select("-password");
+    const userProfile = await User.findById(req.userId).select("-password");
     if (!userProfile) {
       return res.status(404).json({ message: "Utilisateur non trouvé" });
     }
@@ -284,7 +284,7 @@ exports.updateUserProfile = async (req, res) => {
       }
     }
     
-    const updatedUser = await user.findByIdAndUpdate(
+    const updatedUser = await User.findByIdAndUpdate(
       userId, 
       updateData, 
       { new: true, runValidators: true }
@@ -331,7 +331,6 @@ exports.getUserStats = async (req, res) => {
 // Récupérer le profil public d'un candidat (accès recruteur/admin)
 exports.getCandidatePublicProfile = async (req, res) => {
   try {
-    const User = require("../models/user.model");
     const UserCertification = require("../models/userCertification.model");
     const TestResult = require("../models/testResult.model");
 

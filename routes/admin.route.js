@@ -7,10 +7,20 @@ const tokenValide = require('../middlewares/auth.middleware');
 
 // Middleware pour vérifier le rôle admin
 const requireAdmin = async (req, res, next) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ message: 'Accès non autorisé' });
+  try {
+    if (!req.userId) {
+      return res.status(401).json({ message: 'Authentification requise' });
+    }
+
+    const user = await User.findById(req.userId).select('role');
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ message: 'Accès non autorisé' });
+    }
+    next();
+  } catch (error) {
+    console.error('Erreur dans le middleware requireAdmin:', error);
+    return res.status(500).json({ message: 'Erreur serveur' });
   }
-  next();
 };
 
 // Appliquer le middleware d'authentification et d'admin à toutes les routes

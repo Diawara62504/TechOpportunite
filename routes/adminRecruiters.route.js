@@ -1,19 +1,20 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/admin.controller');
-const { tokenValide } = require('../middlewares/auth.middleware');
+const tokenValide = require('../middlewares/auth.middleware');
 
 // Middleware pour vérifier que l'utilisateur est admin
 const requireAdmin = async (req, res, next) => {
   try {
-    if (!req.user) {
+    if (!req.userId) {
       return res.status(401).json({
         success: false,
         message: 'Authentification requise'
       });
     }
 
-    const user = await require('../models/user.model').findById(req.user.id);
+    const User = require('../models/user.model');
+    const user = await User.findById(req.userId);
     if (!user || user.role !== 'admin') {
       return res.status(403).json({
         success: false,
