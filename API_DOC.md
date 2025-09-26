@@ -3,7 +3,7 @@
 ## 🌐 Base URL
 ```
 Production: https://techopportunite.onrender.com ✅ ACTIF
-
+Toutes les routes d'API sont préfixées par /api
 ```
 
 ---
@@ -13,10 +13,10 @@ Production: https://techopportunite.onrender.com ✅ ACTIF
 L'API utilise un système d'authentification JWT avec cookies. Les routes protégées nécessitent un token valide.
 
 ### 🔑 Processus d'authentification
-1. **Inscription** : `POST /user/register`
-2. **Connexion** : `POST /user/login` → Retourne des cookies `token` et `refreshToken`
+1. **Inscription** : `POST /api/user/register`
+2. **Connexion** : `POST /api/user/login` → Retourne des cookies `token` et `refreshToken`
 3. **Utilisation** : Les cookies sont automatiquement envoyés avec les requêtes
-4. **Déconnexion** : `GET /user/logout` → Supprime les cookies
+4. **Déconnexion** : `GET /api/user/logout` → Supprime les cookies
 
 ### ⚠️ Important
 - Le token expire en **2 secondes** (pour les tests)
@@ -27,9 +27,9 @@ L'API utilise un système d'authentification JWT avec cookies. Les routes proté
 
 ## 📋 Endpoints
 
-### 👥 Utilisateurs (`/user`)
+### 👥 Utilisateurs (`/api/user`)
 
-#### 🔐 POST `/user/register`
+#### 🔐 POST `/api/user/register`
   Crée un nouvel utilisateur.  
 
 **Body:**
@@ -63,7 +63,7 @@ L'API utilise un système d'authentification JWT avec cookies. Les routes proté
 
 ---
 
-#### 🔑 POST `/user/login`
+#### 🔑 POST `/api/user/login`
 Connecte un utilisateur.
 
 **Body:**
@@ -89,7 +89,7 @@ Connecte un utilisateur.
 
 ---
 
-#### 👤 GET `/user/get`
+#### 👤 GET `/api/user/get`
 Récupère la liste des utilisateurs avec pagination et recherche.
 
 **Query Parameters:**
@@ -124,7 +124,7 @@ GET /user/get?limit=10&page=1&search=Diallo
 
 ---
 
-#### 🚪 GET `/user/logout`
+#### 🚪 GET `/api/user/logout`
 Déconnecte l'utilisateur en supprimant les cookies.
 
 **Réponse (200):**
@@ -136,9 +136,9 @@ Déconnecte l'utilisateur en supprimant les cookies.
 
 ---
 
-### 💼 Offres (`/offer`)
+### 💼 Offres (`/api/offers`)
 
-#### 📋 GET `/offer`
+#### 📋 GET `/api/offers`
 Récupère la liste des offres avec pagination et recherche.
 
 **Query Parameters:**
@@ -181,7 +181,7 @@ GET /offer?page=1&limit=12&search=React
 
 ---
 
-#### ➕ POST `/offer`
+#### ➕ POST `/api/offers`
 Crée une nouvelle offre. **🔒 Authentification requise**
 
 **Headers:**
@@ -217,7 +217,7 @@ Authorization: Bearer <token>
 
 ---
 
-#### 🔍 GET `/offer/:id`
+#### 🔍 GET `/api/offers/:id`
 Récupère les offres d'un utilisateur spécifique. **🔒 Authentification requise**
 
 **Exemple:**
@@ -247,9 +247,9 @@ GET /offer/64f8a1b2c3d4e5f6a7b8c9d0
 
 ---
 
-### 📊 Statistiques (`/stats`)
+### 📊 Statistiques (`/api/stats`)
 
-#### 📈 GET `/stats`
+#### 📈 GET `/api/stats`
 Récupère les statistiques globales des offres.
 
 **Réponse (200):**
@@ -273,9 +273,9 @@ Récupère les statistiques globales des offres.
 
 ---
 
-### 🔔 Notifications (`/notification`)
+### 🔔 Notifications (`/api/notifications`)
 
-#### ➕ POST `/notification`
+#### ➕ POST `/api/notifications`
 Crée une nouvelle notification. **🔒 Authentification requise**
 
 **Headers:**
@@ -294,7 +294,7 @@ Authorization: Bearer <token>
 
 ---
 
-#### 📋 GET `/notification`
+#### 📋 GET `/api/notifications`
 Récupère les notifications de l'utilisateur connecté. **🔒 Authentification requise**
 
 **Headers:**

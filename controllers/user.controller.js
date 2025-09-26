@@ -6,11 +6,29 @@ const NotificationService = require("../services/notificationService");
 
 exports.register = async (req, res) => {
   try {
+    console.log('📝 Tentative d\'inscription:', { 
+      email: req.body.email, 
+      role: req.body.role,
+      timestamp: new Date().toISOString(),
+      userAgent: req.get('User-Agent'),
+      ip: req.ip
+    });
+    
     const { nom, prenom, email, password, preference, role, titre, entreprise, localisation, telephone, linkedin, github, portfolio, about, experience, formation, competences, langues } = req.body;
+    
+    // Vérifier la connexion MongoDB
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) {
+      console.log('❌ MongoDB non connecté pour inscription');
+      return res.status(503).json({ message: "Service temporairement indisponible" });
+    }
 
     const userExist = await User.findOne({ email });
+    console.log('👤 Utilisateur existant:', userExist ? 'Oui' : 'Non');
+    
     if (userExist) {
-      return res.status(404).json({ message: "Utilisateur déjà inscrit" });
+      console.log('❌ Utilisateur déjà inscrit:', email);
+      return res.status(409).json({ message: "Utilisateur déjà inscrit" });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -106,22 +124,55 @@ exports.register = async (req, res) => {
       }
     }
 
+    console.log('✅ Inscription réussie pour:', email);
     res.status(200).json(userResponse);
   } catch (error) {
-    console.error('Erreur lors de l\'inscription:', error);
-    res.status(500).json({ message: "Erreur de serveur" });
+    console.error('❌ Erreur lors de l\'inscription:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    // Valider proprement les erreurs de validation ou de conflit
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ message: 'Données invalides', details: error.errors });
+    }
+    if (error.code === 11000) { // Duplicate key (email unique)
+      return res.status(409).json({ message: 'Utilisateur déjà inscrit' });
+    }
+    res.status(500).json({ message: "Erreur de serveur", error: error.message });
   }
 };
 
 exports.login = async (req, res) => {
   try {
+    console.log('🔐 Tentative de connexion:', { 
+      email: req.body.email, 
+      timestamp: new Date().toISOString(),
+      userAgent: req.get('User-Agent'),
+      ip: req.ip
+    });
+    
     const { email, password } = req.body;
+    
+    // Vérifier la connexion MongoDB
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) {
+      console.log('❌ MongoDB non connecté pour login');
+      return res.status(503).json({ message: "Service temporairement indisponible" });
+    }
+    
     const isValable = await User.findOne({ email });
+    console.log('👤 Utilisateur trouvé:', isValable ? 'Oui' : 'Non');
+    
     if (!isValable) {
+      console.log('❌ Utilisateur non trouvé:', email);
       return res.status(404).json({ message: "Informations incorrectes !" });
     }
     const isMatch = await bcrypt.compare(password, isValable.password);
+    console.log('🔑 Mot de passe valide:', isMatch ? 'Oui' : 'Non');
+    
     if (!isMatch) {
+      console.log('❌ Mot de passe incorrect pour:', email);
       return res.status(404).json({ message: "Information incorrectes !" });
     }
 
@@ -172,9 +223,11 @@ exports.login = async (req, res) => {
     const userToReturn = isValable.toObject();
     delete userToReturn.password;
 
+    console.log('✅ Connexion réussie pour:', email);
     res.json({ message: "Connexion réussie", user: userToReturn });
   } catch (error) {
-    res.status(400).json(error);
+    console.error('❌ Erreur lors de la connexion:', error);
+    res.status(400).json({ message: "Erreur de serveur", error: error.message });
   }
 };
 

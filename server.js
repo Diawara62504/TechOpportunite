@@ -1,11 +1,15 @@
 const express = require("express");
 const http = require("http");
+const path = require("path");
+
+// Charger les variables d'environnement depuis config/.env
+require('dotenv').config({ path: path.join(__dirname, 'config', '.env') });
+
 const {connect} = require("./config/db");
 const router = require("./routes/user.route");
 const logger = require("./middlewares/middlogger");
 const routerOffer = require("./routes/offer.route");
 const routeStats = require("./routes/stats.route");
-const routerNotif = require("./routes/notif.routes");
 const routerMessage = require("./routes/message.routes");
 const routerChatbot = require("./routes/chatbot.routes");
 const routerAnalytics = require("./routes/analytics.routes");
@@ -28,6 +32,18 @@ const server = http.createServer(app);
 
 app.use(express.json());
 app.use(cookieParser())
+
+// Middleware de logging pour toutes les requêtes
+app.use((req, res, next) => {
+  console.log(`📡 ${req.method} ${req.url} - ${new Date().toISOString()}`);
+  console.log(`   Headers:`, {
+    'Content-Type': req.get('Content-Type'),
+    'Authorization': req.get('Authorization') ? 'Present' : 'Missing',
+    'Origin': req.get('Origin'),
+    'User-Agent': req.get('User-Agent')?.substring(0, 50) + '...'
+  });
+  next();
+});
 
 // CORS: Configuration sécurisée pour les environnements de développement et production
 const corsOptions = {
@@ -54,7 +70,6 @@ app.use(logger);
 app.use("/api/user", router);
 app.use("/api/offers", routerOffer);
 app.use("/api/stats", routeStats);
-app.use("/api/notification", routerNotif)
 app.use("/api/message", routerMessage);
 app.use("/api/chatbot", routerChatbot);
 app.use("/api/analytics", routerAnalytics);
@@ -69,22 +84,7 @@ app.use('/api/debug', routerDebug);
 app.use('/api/admin', require('./routes/admin.route'));
 app.use('/api/admin', routerAdminRecruiters);
 
-// Routes sans préfixe pour compatibilité (à supprimer progressivement)
-app.use("/user", router);
-app.use("/offers", routerOffer);
-app.use("/stats", routeStats);
-app.use("/notification", routerNotif)
-app.use("/message", routerMessage);
-app.use("/chatbot", routerChatbot);
-app.use("/analytics", routerAnalytics);
-app.use("/ai-matching", routerAiMatching);
-app.use("/gamification", routerGamification);
-app.use("/marketplace", routerMarketplace);
-app.use("/video-interviews", routerVideoInterview);
-app.use('/recruiter', routerRecruiter);
-app.use('/notifications', routerNotification);
-app.use('/admin', require('./routes/admin.route'));
-app.use('/admin', routerAdminRecruiters);
+// Routes sans préfixe supprimées pour éviter les doublons et incohérences
 
 
 // Validation routes
