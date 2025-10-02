@@ -251,10 +251,11 @@ exports.refreshToken = (req, res) => {
       { expiresIn: "24h" }
     );
 
+    // Aligner les options avec celles utilisées au login pour éviter les pertes de session
     res.cookie("token", newAccessToken, {
-      httpOnly: true,
+      httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: 'none',
       maxAge: 24 * 60 * 60 * 1000, // 24 heures
     });
 
@@ -293,8 +294,8 @@ exports.logout = async (req, res) => {
     try {
         // Effacer les cookies en spécifiant les mêmes options que lors de leur création
         const cookieOptions = {
-            httpOnly: true,
-            secure: true,
+            httpOnly: false,
+            secure: process.env.NODE_ENV === 'production',
             sameSite: "none",
         };
         res.clearCookie("token", cookieOptions);
