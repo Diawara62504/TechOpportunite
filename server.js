@@ -50,7 +50,7 @@ const corsOptions = {
   origin: [
     "http://localhost:5173",
     "https://techopportunite.vercel.app",
-    "https://techopportunite.onrender.com"
+    "https://techoppfrontend.onrender.com"
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
