@@ -224,7 +224,8 @@ exports.login = async (req, res) => {
     delete userToReturn.password;
 
     console.log('✅ Connexion réussie pour:', email);
-    res.json({ message: "Connexion réussie", user: userToReturn });
+    // Inclure aussi les tokens dans la réponse pour les environnements où les cookies tiers sont bloqués
+    res.json({ message: "Connexion réussie", user: userToReturn, token, refreshToken });
   } catch (error) {
     console.error('❌ Erreur lors de la connexion:', error);
     res.status(400).json({ message: "Erreur de serveur", error: error.message });
@@ -259,7 +260,8 @@ exports.refreshToken = (req, res) => {
       maxAge: 24 * 60 * 60 * 1000, // 24 heures
     });
 
-    res.json({ message: "Token rafraîchi avec succès" });
+    // Retourner aussi le nouveau token pour que le frontend puisse le stocker si nécessaire
+    res.json({ message: "Token rafraîchi avec succès", token: newAccessToken });
   });
 };
 
